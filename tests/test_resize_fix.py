@@ -5,7 +5,7 @@ import os
 import sys
 
 # Add the current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_column_resizing_parameters():
     """Test that our column resizing parameters are correctly set."""

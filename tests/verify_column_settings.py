@@ -62,10 +62,3 @@ if __name__ == "__main__":
     check_query_results_settings() 
     check_table_helpers_settings()
     usage_instructions()
-
-
-import sys
-import os
-
-# Add parent directory to Python path to import project modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

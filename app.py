@@ -55,6 +55,9 @@ class ClickHouseClientApp:
         # Set theme manager for StatusManager
         StatusManager.set_theme_manager(self.theme_manager)
 
+        # Initialize stored credentials for auto-connect
+        self.stored_credentials = None
+
         # Set up callbacks
         self.table_browser.set_double_click_callback(self.data_explorer.open_explorer)
         self.table_browser.set_status_callback(StatusManager.show_status)
@@ -64,6 +67,23 @@ class ClickHouseClientApp:
         """Setup the main user interface."""
         # Main window setup
         with window(label="ClickHouse Client", tag="main_window", no_resize=True, no_move=True, no_collapse=True):
+            # Add menu bar
+            with menu_bar():
+                with menu(label="File"):
+                    add_menu_item(
+                        label="Connection Settings",
+                        callback=self.show_connection_settings_modal,
+                    )
+                    add_separator()
+                    add_menu_item(
+                        label="Connect",
+                        callback=self.connect_callback,
+                    )
+                    add_menu_item(
+                        label="Disconnect",
+                        callback=self.disconnect_callback,
+                    )
+
             with group(horizontal=True):
                 # Left panel for tables - now fills full height to match right panels
                 with child_window(label=f"{icon_manager.get('table')} Database Tables", width=TABLES_PANEL_WIDTH, height=-1, tag="tables_panel", border=True):
@@ -86,10 +106,8 @@ class ClickHouseClientApp:
                     add_group(tag="tables_list")
                     add_text("Connect to see tables", parent="tables_list", color=(128, 128, 128))
 
-                # Right panel for connection, query, and results
+                # Right panel for query and results
                 with group(width=-1):
-                    self._setup_connection_section()
-                    add_separator()
                     self._setup_status_section()
                     self._setup_query_section()
                     self._setup_explorer_section()
@@ -99,69 +117,6 @@ class ClickHouseClientApp:
 
         # Setup font
         FontManager.setup_monospace_font()
-
-    def _setup_connection_section(self):
-        """Setup the connection settings section."""
-        with collapsing_header(label=f"{icon_manager.get('database')} Connection Settings", default_open=False):
-            # Credential management section
-            with group(horizontal=True):
-                add_combo(label=f"{icon_manager.get('load')} Saved Credentials", tag="credentials_combo", 
-                         callback=self.load_selected_credentials_callback, width=200)
-                bind_item_theme("credentials_combo", self.theme_manager.get_theme('combo_enhanced'))
-                add_button(label=f"{icon_manager.get('refresh')} Refresh", callback=self.refresh_credentials_callback, 
-                          width=120, tag="refresh_button")
-                bind_item_theme("refresh_button", self.theme_manager.get_theme('button_secondary'))
-
-            add_text("Credential Name:")
-            with group(horizontal=True):
-                add_input_text(tag="credential_name_input", width=200)
-                bind_item_theme("credential_name_input", self.theme_manager.get_theme('input_enhanced'))
-                add_button(label=f"{icon_manager.get('save')} Save As", callback=self.save_named_credentials_callback, 
-                          width=120, tag="save_as_button")
-                bind_item_theme("save_as_button", self.theme_manager.get_theme('button_success'))
-                add_button(label=f"{icon_manager.get('delete')} Delete", callback=self.delete_credentials_callback, 
-                          width=120, tag="delete_button")
-                bind_item_theme("delete_button", self.theme_manager.get_theme('button_danger'))
-
-            add_separator()
-
-            # Connection parameters section
-            add_text("ClickHouse Connection Settings:", color=(255, 193, 7))  # Yellow header
-            add_spacer(height=5)
-
-            # Connection parameters with left-aligned labels
-            add_text("Host/Server Address:")
-            add_input_text(default_value=DEFAULT_HOST, tag="host_input", 
-                          hint="e.g., localhost, 192.168.1.100, clickhouse.example.com")
-            bind_item_theme("host_input", self.theme_manager.get_theme('input_enhanced'))
-
-            add_text("Port Number:")
-            add_input_text(default_value=DEFAULT_PORT, tag="port_input",
-                          hint="Default: 9000 (Native), 8123 (HTTP)")
-            bind_item_theme("port_input", self.theme_manager.get_theme('input_enhanced'))
-
-            add_text("Username:")
-            add_input_text(default_value=DEFAULT_USERNAME, tag="username_input",
-                          hint="ClickHouse user account name")
-            bind_item_theme("username_input", self.theme_manager.get_theme('input_enhanced'))
-
-            add_text("Password:")
-            add_input_text(password=True, tag="password_input",
-                          hint="Leave empty if no password required")
-            bind_item_theme("password_input", self.theme_manager.get_theme('input_enhanced'))
-
-            add_text("Database Name:")
-            add_input_text(default_value=DEFAULT_DATABASE, tag="database_input",
-                          hint="Target database to connect to")
-            bind_item_theme("database_input", self.theme_manager.get_theme('input_enhanced'))
-
-            with group(horizontal=True):
-                add_button(label=f"{icon_manager.get('connect')} Connect", callback=self.connect_callback, tag="connect_button", width=100)
-                bind_item_theme("connect_button", self.theme_manager.get_theme('button_primary'))
-                add_button(label=f"{icon_manager.get('disconnect')} Disconnect", callback=self.disconnect_callback, 
-                          tag="disconnect_button", width=120, enabled=False)
-                bind_item_theme("disconnect_button", self.theme_manager.get_theme('button_danger'))
-                add_text(f"{icon_manager.get('status_disconnected')} Disconnected", tag="connection_indicator", color=COLOR_ERROR)
 
     def _setup_status_section(self):
         """Setup the status display section."""
@@ -224,27 +179,45 @@ class ClickHouseClientApp:
         StatusManager.show_status("Connecting... Please wait", error=False)
 
         try:
-            # Get connection parameters
-            host = UIHelpers.safe_get_value("host_input", DEFAULT_HOST)
-            port = UIHelpers.safe_get_value("port_input", DEFAULT_PORT)
-            username = UIHelpers.safe_get_value("username_input", DEFAULT_USERNAME)
-            password = UIHelpers.safe_get_value("password_input", "")
-            database = UIHelpers.safe_get_value("database_input", DEFAULT_DATABASE)
+            # Get connection parameters - use stored credentials if available, otherwise form values
+            if self.stored_credentials:
+                print("[DEBUG] Using stored credentials for connection")
+                host = self.stored_credentials.get("host", DEFAULT_HOST)
+                port = self.stored_credentials.get("port", DEFAULT_PORT)
+                username = self.stored_credentials.get("user", DEFAULT_USERNAME)
+                password = self.stored_credentials.get("password", "")
+                database = self.stored_credentials.get("database", DEFAULT_DATABASE)
+            else:
+                print("[DEBUG] Using form values for connection")
+                host = UIHelpers.safe_get_value("host_input", DEFAULT_HOST)
+                port = UIHelpers.safe_get_value("port_input", DEFAULT_PORT)
+                username = UIHelpers.safe_get_value("username_input", DEFAULT_USERNAME)
+                password = UIHelpers.safe_get_value("password_input", "")
+                database = UIHelpers.safe_get_value("database_input", DEFAULT_DATABASE)
+
+            print(
+                f"[DEBUG] Connection parameters: host={host}, port={port}, username={username}, database={database}"
+            )
 
             # Validate parameters
             is_valid, error_msg = validate_connection_params(host, port, username, database)
             if not is_valid:
                 raise ValueError(error_msg)
 
+            print("[DEBUG] Connection parameters validated successfully")
+
             # Attempt connection
             success, message = self.db_manager.connect(host, int(port), username, password, database)
+            print(
+                f"[DEBUG] Connection attempt result: success={success}, message={message}"
+            )
 
             if success:
                 StatusManager.show_status(message)
                 UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
                 # Apply connected theme to connection indicator
                 connected_theme = self.theme_manager.create_connection_indicator_theme(True)
-                bind_item_theme("connection_indicator", connected_theme)
+                UIHelpers.safe_bind_item_theme("connection_indicator", connected_theme)
 
                 self.save_credentials_callback(None, None)  # Auto-save on successful connection
 
@@ -265,7 +238,7 @@ class ClickHouseClientApp:
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
-            bind_item_theme("connection_indicator", disconnected_theme)
+            UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
         finally:
             # Re-enable connect button
             UIHelpers.safe_configure_item("connect_button", enabled=True)
@@ -282,7 +255,7 @@ class ClickHouseClientApp:
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
-            bind_item_theme("connection_indicator", disconnected_theme)
+            UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
 
             StatusManager.show_status(message)
 
@@ -457,34 +430,209 @@ class ClickHouseClientApp:
     def auto_load_and_connect(self):
         """Auto-load credentials and attempt connection on startup."""
         try:
+            print("[DEBUG] Starting auto_load_and_connect")
+
             # Refresh credentials list first
             self.refresh_credentials_callback(None, None)
 
             # Try to load the first available credentials
             success, credentials, message = self.credentials_manager.load_credentials_legacy()
+            print(
+                f"[DEBUG] Load credentials result: success={success}, message={message}"
+            )
+
+            if credentials:
+                print(f"[DEBUG] Credentials found: {credentials}")
 
             if success and credentials:
                 StatusManager.show_status("Credentials loaded automatically on startup")
 
-                # Set the form values
-                self._set_form_values(credentials)
+                # Store the credentials for later use
+                self.stored_credentials = credentials
 
                 # Only auto-connect if we have valid credentials
                 if all([credentials["host"], credentials["port"], credentials["user"], credentials["database"]]):
+                    print("[DEBUG] Valid credentials found, attempting auto-connect")
+                    print(
+                        f"[DEBUG] Auto-connect credentials: host={credentials['host']}, port={credentials['port']}, user={credentials['user']}, database={credentials['database']}"
+                    )
                     StatusManager.show_status("Attempting automatic connection...")
                     self.connect_callback(None, None)
+                else:
+                    print(f"[DEBUG] Invalid credentials: {credentials}")
             else:
+                print("[DEBUG] No credentials found or load failed")
                 StatusManager.show_status("No saved credentials found", error=False)
 
         except Exception as e:
+            print(f"[DEBUG] Auto-connect exception: {str(e)}")
             StatusManager.show_status(f"Auto-connect failed: {str(e)}", error=True)
+
+    def show_connection_settings_modal(self):
+        """Show a modal dialog for connection settings."""
+        with window(
+            label="Connection Settings",
+            modal=True,
+            tag="connection_settings_modal",
+            width=500,
+            height=600,
+        ):
+            add_text(
+                "ClickHouse Connection Settings", color=(255, 193, 7)
+            )  # Yellow header
+            add_separator()
+
+            # Credential management section
+            add_text("Saved Connections:", color=(255, 255, 0))
+            with group(horizontal=True):
+                add_combo(
+                    label="Saved Credentials",
+                    tag="credentials_combo",
+                    callback=self.load_selected_credentials_callback,
+                    width=250,
+                )
+                bind_item_theme(
+                    "credentials_combo", self.theme_manager.get_theme("combo_enhanced")
+                )
+                add_button(
+                    label="Refresh",
+                    callback=self.refresh_credentials_callback,
+                    width=80,
+                    tag="refresh_button",
+                )
+                bind_item_theme(
+                    "refresh_button", self.theme_manager.get_theme("button_secondary")
+                )
+
+            add_text("Save New Connection:")
+            with group(horizontal=True):
+                add_input_text(
+                    tag="credential_name_input", width=200, hint="Connection name"
+                )
+                bind_item_theme(
+                    "credential_name_input",
+                    self.theme_manager.get_theme("input_enhanced"),
+                )
+                add_button(
+                    label="Save As",
+                    callback=self.save_named_credentials_callback,
+                    width=80,
+                    tag="save_as_button",
+                )
+                bind_item_theme(
+                    "save_as_button", self.theme_manager.get_theme("button_success")
+                )
+                add_button(
+                    label="Delete",
+                    callback=self.delete_credentials_callback,
+                    width=80,
+                    tag="delete_button",
+                )
+                bind_item_theme(
+                    "delete_button", self.theme_manager.get_theme("button_danger")
+                )
+
+            add_separator()
+
+            # Connection parameters with left-aligned labels
+            add_text("Host/Server Address:")
+            add_input_text(
+                default_value=DEFAULT_HOST,
+                tag="host_input",
+                hint="e.g., localhost, 192.168.1.100, clickhouse.example.com",
+            )
+            bind_item_theme(
+                "host_input", self.theme_manager.get_theme("input_enhanced")
+            )
+
+            add_text("Port Number:")
+            add_input_text(
+                default_value=DEFAULT_PORT,
+                tag="port_input",
+                hint="Default: 9000 (Native), 8123 (HTTP)",
+            )
+            bind_item_theme(
+                "port_input", self.theme_manager.get_theme("input_enhanced")
+            )
+
+            add_text("Username:")
+            add_input_text(
+                default_value=DEFAULT_USERNAME,
+                tag="username_input",
+                hint="ClickHouse user account name",
+            )
+            bind_item_theme(
+                "username_input", self.theme_manager.get_theme("input_enhanced")
+            )
+
+            add_text("Password:")
+            add_input_text(
+                password=True,
+                tag="password_input",
+                hint="Leave empty if no password required",
+            )
+            bind_item_theme(
+                "password_input", self.theme_manager.get_theme("input_enhanced")
+            )
+
+            add_text("Database Name:")
+            add_input_text(
+                default_value=DEFAULT_DATABASE,
+                tag="database_input",
+                hint="Target database to connect to",
+            )
+            bind_item_theme(
+                "database_input", self.theme_manager.get_theme("input_enhanced")
+            )
+
+            add_separator()
+
+            # Connection status and control buttons
+            with group(horizontal=True):
+                add_button(
+                    label="Connect",
+                    callback=self.connect_callback,
+                    tag="connect_button",
+                    width=100,
+                )
+                bind_item_theme(
+                    "connect_button", self.theme_manager.get_theme("button_primary")
+                )
+                add_button(
+                    label="Disconnect",
+                    callback=self.disconnect_callback,
+                    tag="disconnect_button",
+                    width=120,
+                    enabled=False,
+                )
+                bind_item_theme(
+                    "disconnect_button", self.theme_manager.get_theme("button_danger")
+                )
+                add_text("Disconnected", tag="connection_indicator", color=COLOR_ERROR)
+
+            add_separator()
+
+            # Close button
+            add_button(
+                label="Close", callback=lambda: delete_item("connection_settings_modal")
+            )
+
+            # Auto-refresh credentials when modal opens
+            self.refresh_credentials_callback(None, None)
+
+            # If we have stored credentials, populate the form
+            if self.stored_credentials:
+                self._set_form_values(self.stored_credentials)
 
     def run(self):
         """Run the application."""
         self.setup_ui()
-        self.auto_load_and_connect()
 
         setup_dearpygui()
         show_viewport()
+
+        # Auto-connect after UI is fully initialized
+        self.auto_load_and_connect()
+
         start_dearpygui()
         destroy_context()

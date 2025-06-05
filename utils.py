@@ -65,7 +65,7 @@ class FontManager:
 
 class UIHelpers:
     """Helper functions for UI operations."""
-    
+
     @staticmethod
     def safe_get_value(tag: str, default=""):
         """Safely get value from a UI component."""
@@ -73,7 +73,7 @@ class UIHelpers:
             return get_value(tag) or default
         except:
             return default
-    
+
     @staticmethod
     def safe_configure_item(tag: str, **kwargs):
         """Safely configure a UI item."""
@@ -82,7 +82,7 @@ class UIHelpers:
             return True
         except:
             return False
-    
+
     @staticmethod
     def safe_delete_item(tag: str, children_only: bool = False):
         """Safely delete a UI item."""
@@ -90,6 +90,16 @@ class UIHelpers:
             delete_item(tag, children_only=children_only)
             return True
         except:
+            return False
+
+    @staticmethod
+    def safe_bind_item_theme(tag: str, theme):
+        """Safely bind a theme to a UI item."""
+        try:
+            bind_item_theme(tag, theme)
+            return True
+        except Exception as e:
+            print(f"[DEBUG] Failed to bind theme to {tag}: {e}")
             return False
 
 

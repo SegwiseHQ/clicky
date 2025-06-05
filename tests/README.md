@@ -1,30 +1,50 @@
 # Tests Directory
 
-This directory contains all test files for the ClickHouse Client Application, organized for better maintainability and easy execution.
+This directory contains all test files, debug scripts, and validation tools for the ClickHouse Client Application.
 
-## 📁 Directory Structure
+## 📁 Complete Directory Structure
 
 ```
 tests/
 ├── __init__.py                    # Package initialization
 ├── README.md                      # This file
-├── demo_column_types.py           # Demo script for column type features
+├── fix_imports.py                 # Import path fixing utility
+├── fix_test_imports.py            # Test import fixing utility
+│
+├── 🐛 DEBUG SCRIPTS
+├── debug_connection_status.py     # Connection status timing diagnostics
+├── debug_status_issue.py          # Auto-connect status issue debugging
+├── debug_table_loading.py         # Table loading issue diagnosis
+├── diagnose_auto_connect.py       # Auto-connect process analysis
+├── simple_debug.py                # Simple database connection testing
+│
+├── 🔍 VALIDATION SCRIPTS  
+├── final_validation.py            # Comprehensive UI status fix validation
+├── validate_ui_status_fix.py      # UI status indicator validation
+├── verify_column_settings.py      # Column settings verification
+│
+├── 🧪 TEST SUITES
 ├── test_all_fixes.py              # Comprehensive test suite
 ├── test_column_resizing.py        # Manual column resizing tests ✅
 ├── test_column_types.py           # Column type display tests
 ├── test_column_types_simple.py    # Simplified column type tests
 ├── test_comprehensive_fixes.py    # Full feature integration tests
+├── test_connect_logic.py          # Connection logic tests
 ├── test_copy_functionality.py     # Copy-to-clipboard functionality tests
-├── test_credentials_fix.py        # Credential management tests
+├── test_core_logic.py             # Core application logic tests
+├── test_credential_fix.py         # Credential handling tests
+├── test_credential_mapping.py     # Credential mapping tests
+├── test_credentials_fix.py        # Credentials fix tests
 ├── test_data_explorer.py          # Data explorer component tests
 ├── test_emoji_icons.py            # Emoji icon fallback tests
 ├── test_font_awesome.py           # Font Awesome icon tests
 ├── test_icons.py                  # Icon manager tests
 ├── test_query_copy.py             # Query results copy tests
 ├── test_resize_fix.py             # Column resize verification tests ✅
+├── test_status_fix.py             # Status indicator fix tests
 ├── test_table_extraction.py       # Table name extraction tests
-├── test_unicode.py                # Unicode handling tests
-└── verify_column_settings.py      # Column settings verification ✅
+├── test_ui_workflow.py            # UI workflow tests
+└── test_unicode.py                # Unicode handling tests
 ```
 
 ## 🧪 Test Categories
