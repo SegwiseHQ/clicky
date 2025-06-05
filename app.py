@@ -410,7 +410,7 @@ class ClickHouseClientApp:
         is_expanded = "current" in self.connections_expanded
 
         # Get the appropriate visual indicator for expanded/collapsed state
-        expand_icon = "▼" if is_expanded else "►"
+        expand_icon = "[-]" if is_expanded else "[+]"
 
         # Add connection name as parent with clickable button and indicator
         connection_button = f"connection_header_{int(time.time() * 1000)}"
@@ -460,16 +460,8 @@ class ClickHouseClientApp:
 
         # If we found a saved name, use it as the display name
         if connection_name:
-            # Add appropriate icon based on the connection type
-            info = self.db_manager.connection_info
-            host = info.get("host", "").lower()
-
-            if "clickhouse.cloud" in str(host):
-                return f"🌐 {connection_name}"
-            elif host in ["localhost", "127.0.0.1"]:
-                return f"💻 {connection_name}"
-            else:
-                return f"🖥️ {connection_name}"
+            # Use the saved name directly without emojis
+            return connection_name
 
         # Fallback to technical connection info if no saved name is found
         info = self.db_manager.connection_info
@@ -477,16 +469,16 @@ class ClickHouseClientApp:
         port = info.get("port", "Unknown")
         database = info.get("database", "Unknown")
 
-        # Create a readable connection name with proper icon
+        # Create a readable connection name without emojis
         if "clickhouse.cloud" in str(host).lower():
             # For cloud connections, show a cleaner name
-            return f"🌐 {host}/{database}"
+            return f"{host}/{database}"
         elif host in ["localhost", "127.0.0.1"]:
             # For local connections
-            return f"💻 Local ({database})"
+            return f"Local ({database})"
         else:
             # For other remote connections
-            return f"🖥️ {host}:{port}/{database}"
+            return f"{host}:{port}/{database}"
 
     def _set_form_values(self, credentials: dict):
         """Set form values from credentials dictionary."""
