@@ -78,9 +78,15 @@ class UIHelpers:
     def safe_configure_item(tag: str, **kwargs):
         """Safely configure a UI item."""
         try:
-            configure_item(tag, **kwargs)
-            return True
-        except:
+            # Check if the item exists first
+            if does_item_exist(tag):
+                configure_item(tag, **kwargs)
+                return True
+            else:
+                print(f"[DEBUG] Item {tag} does not exist, skipping configuration")
+                return False
+        except Exception as e:
+            print(f"[DEBUG] Failed to configure item {tag}: {e}")
             return False
 
     @staticmethod
@@ -96,8 +102,13 @@ class UIHelpers:
     def safe_bind_item_theme(tag: str, theme):
         """Safely bind a theme to a UI item."""
         try:
-            bind_item_theme(tag, theme)
-            return True
+            # Check if the item exists first
+            if does_item_exist(tag):
+                bind_item_theme(tag, theme)
+                return True
+            else:
+                print(f"[DEBUG] Item {tag} does not exist, skipping theme binding")
+                return False
         except Exception as e:
             print(f"[DEBUG] Failed to bind theme to {tag}: {e}")
             return False
