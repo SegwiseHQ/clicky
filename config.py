@@ -26,8 +26,8 @@ STATUS_WINDOW_HEIGHT = 80
 QUERY_INPUT_HEIGHT = 150
 TABLE_ROW_HEIGHT = 25
 TABLE_BUTTON_HEIGHT = 30
-COLUMN_WIDTH = 200
-RESULTS_COLUMN_WIDTH = 150
+COLUMN_WIDTH = 400  # Updated to match data explorer width
+RESULTS_COLUMN_WIDTH = 350  # Updated to match query results width
 
 # Colors (RGB tuples) - Enhanced color palette
 COLOR_SUCCESS = (40, 167, 69)        # Bootstrap success green
