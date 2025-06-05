@@ -265,6 +265,9 @@ class ClickHouseClientApp:
             # Clear selected table
             self.selected_table = None
 
+            # Clear expanded connections state
+            self.connections_expanded.clear()
+
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
@@ -412,22 +415,26 @@ class ClickHouseClientApp:
         delete_item("tables_list", children_only=True)
 
         if not self.db_manager.is_connected:
-            add_text(
-                "Connect to see tables", parent="tables_list", color=(128, 128, 128)
-            )
+            # If not connected, show all saved connections
+            self.show_saved_connections()
             return
 
         # Get connection name for the parent node
         connection_name = self._get_connection_display_name()
+
+        # Check if tables should be visible based on expand/collapse state
+        is_expanded = "current" in self.connections_expanded
+
+        # If connection is collapsed, simply show all saved connections
+        if not is_expanded:
+            self.show_saved_connections()
+            return
 
         # Get all table names and filter them
         all_tables = self.db_manager.get_tables()
         filtered_tables = [
             table for table in all_tables if search_query in table.lower()
         ]
-
-        # Check if tables should be visible based on expand/collapse state
-        is_expanded = "current" in self.connections_expanded
 
         # Get the appropriate visual indicator for expanded/collapsed state
         expand_icon = "[-]" if is_expanded else "[+]"
@@ -444,41 +451,74 @@ class ClickHouseClientApp:
         )
 
         # Apply the table_button theme to the connection button
-        bind_item_theme(connection_button, self.theme_manager.get_theme("table_button"))
+        bind_item_theme(
+            connection_button, self.theme_manager.get_theme("selected_table_button")
+        )
 
-        # Only show tables if connection is expanded and we have tables
-        if is_expanded:
-            if not filtered_tables:
-                # Display message when no tables match search criteria
-                add_text("  No tables found", parent="tables_list", color=(255, 0, 0))
-            else:
-                # Add filtered tables as children with indentation
-                for table in filtered_tables:
-                    table_button = add_button(
-                        label=f"  {table}",  # Indent to show hierarchy
-                        parent="tables_list",
-                        callback=self.select_table_callback,
-                        tag=f"table_button_{table}",
+        # Show tables if we have any matching the filter
+        if not filtered_tables:
+            # Display message when no tables match search criteria
+            add_text("  No tables found", parent="tables_list", color=(255, 0, 0))
+        else:
+            # Add filtered tables as children with indentation
+            for table in filtered_tables:
+                table_button = add_button(
+                    label=f"  {table}",  # Indent to show hierarchy
+                    parent="tables_list",
+                    callback=self.select_table_callback,
+                    tag=f"table_button_{table}",
+                )
+
+                # Apply appropriate theme based on selection state
+                if table == self.selected_table:
+                    # Apply selected table theme
+                    bind_item_theme(
+                        f"table_button_{table}",
+                        self.theme_manager.get_theme("selected_table_button"),
+                    )
+                else:
+                    # Apply regular table button theme
+                    bind_item_theme(
+                        f"table_button_{table}",
+                        self.theme_manager.get_theme("table_button"),
                     )
 
-                    # Apply appropriate theme based on selection state
-                    if table == self.selected_table:
-                        # Apply selected table theme
-                        bind_item_theme(
-                            f"table_button_{table}",
-                            self.theme_manager.get_theme("selected_table_button"),
-                        )
-                    else:
-                        # Apply regular table button theme
-                        bind_item_theme(
-                            f"table_button_{table}",
-                            self.theme_manager.get_theme("table_button"),
-                        )
-        else:
-            # Show message when connection is collapsed
-            add_text(
-                "  Click to expand tables", parent="tables_list", color=(128, 128, 128)
-            )
+        # Only show other connections section if there are tables displayed
+        if filtered_tables:
+            # Add a separator before showing other connections
+            add_separator(parent="tables_list")
+            add_text("Other Connections:", parent="tables_list", color=(255, 193, 7))
+
+            # Show other available connections below the table list
+            credential_names = self.credentials_manager.get_credential_names()
+            current_connection_name = self._find_credential_name_for_connection()
+
+            # Filter out the current connection from the list
+            other_connections = [
+                name for name in credential_names if name != current_connection_name
+            ]
+
+            if other_connections:
+                for name in other_connections:
+                    connection_button = f"connection_{name}_{int(time.time() * 1000)}"
+                    add_button(
+                        label=f"{name}",
+                        parent="tables_list",
+                        callback=self.connect_to_saved_callback,
+                        user_data=name,
+                        width=-1,
+                        height=30,
+                        tag=connection_button,
+                    )
+                    bind_item_theme(
+                        connection_button, self.theme_manager.get_theme("table_button")
+                    )
+            else:
+                add_text(
+                    "  No other connections",
+                    parent="tables_list",
+                    color=(128, 128, 128),
+                )
 
         # If this was a search triggered by user input, restore the scroll position
         if preserve_scroll:
@@ -834,14 +874,16 @@ class ClickHouseClientApp:
         if "current" in self.connections_expanded:
             # If expanded, collapse it
             self.connections_expanded.remove("current")
+
+            # When collapsed, show all saved connections
+            self.show_saved_connections()
         else:
             # If collapsed, expand it
             self.connections_expanded.add("current")
 
-        # Re-filter tables with the current search query to update display
-        # This will also reapply any highlighting for selected tables
-        current_search = UIHelpers.safe_get_value("table_search", "")
-        self.filter_tables_callback(None, current_search)
+            # Re-filter tables with the current search query to update display
+            current_search = UIHelpers.safe_get_value("table_search", "")
+            self.filter_tables_callback(None, current_search)
 
         # Restore scroll position after refresh
         try:
@@ -863,15 +905,17 @@ class ClickHouseClientApp:
             )
             return
 
+        # Find the currently active connection name, if any
+        current_name = ""
+        if self.db_manager.is_connected and self.db_manager.connection_info:
+            current_name = self._find_credential_name_for_connection()
+
         # Display each saved connection as a button
         for name in credential_names:
             connection_button = f"connection_{name}_{int(time.time() * 1000)}"
 
             # Check if this is the currently active connection
-            is_active = False
-            if self.db_manager.is_connected and self.db_manager.connection_info:
-                current_name = self._find_credential_name_for_connection()
-                is_active = current_name == name
+            is_active = name == current_name
 
             # Create button with appropriate icon
             connection_status = "[Active] " if is_active else ""
@@ -896,19 +940,27 @@ class ClickHouseClientApp:
                     connection_button, self.theme_manager.get_theme("table_button")
                 )
 
-            # If this is the active connection and it's connected, show its tables
-            if is_active and self.db_manager.is_connected:
-                # Add this connection to the expanded list
-                self.connections_expanded.add("current")
-
-                # Get the table list for this connection
-                current_search = UIHelpers.safe_get_value("table_search", "")
-                self.filter_tables_callback(None, current_search)
-
     def connect_to_saved_callback(self, sender, app_data, user_data):
         """Handle clicking on a saved connection to connect to it."""
         # Get connection name from user_data
         connection_name = user_data
+
+        # Check if we're already connected to this connection
+        current_connection_name = ""
+        if self.db_manager.is_connected:
+            current_connection_name = self._find_credential_name_for_connection()
+
+        # If already connected to this connection, just toggle expansion
+        if current_connection_name == connection_name and self.db_manager.is_connected:
+            # Toggle the connection expansion state
+            if "current" in self.connections_expanded:
+                self.connections_expanded.remove("current")
+                self.show_saved_connections()
+            else:
+                self.connections_expanded.add("current")
+                current_search = UIHelpers.safe_get_value("table_search", "")
+                self.filter_tables_callback(None, current_search)
+            return
 
         # Show connecting status
         StatusManager.show_status(
@@ -916,6 +968,10 @@ class ClickHouseClientApp:
         )
 
         try:
+            # First disconnect from any existing connection
+            if self.db_manager.is_connected:
+                self.db_manager.disconnect()
+
             # Load credentials
             success, credentials, message = self.credentials_manager.load_credentials(
                 connection_name
@@ -933,8 +989,12 @@ class ClickHouseClientApp:
             # Connect using these credentials
             self.connect_callback(None, None)
 
-            # Update the saved connections display to show the active connection
-            self.show_saved_connections()
+            # After connecting successfully, make sure the connection is expanded
+            self.connections_expanded.add("current")
+
+            # Refresh the table list to show the tables
+            current_search = UIHelpers.safe_get_value("table_search", "")
+            self.filter_tables_callback(None, current_search)
 
         except Exception as e:
             error_msg = f"Failed to connect to {connection_name}: {str(e)}"
