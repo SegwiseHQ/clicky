@@ -837,6 +837,8 @@ class ClickHouseClientApp:
         print(f"[DEBUG] Available credential names: {credential_names}")
 
         # Check each saved credential for a match
+        matching_credentials = []
+
         for name in credential_names:
             success, cred, _ = self.credentials_manager.load_credentials(name)
             if success:
@@ -857,7 +859,11 @@ class ClickHouseClientApp:
                     and saved_db == current_db
                 ):
                     print(f"[DEBUG] Found matching credential: {name}")
-                    return name
+                    matching_credentials.append(name)
+
+        # If we found multiple matches, return the first one
+        if matching_credentials:
+            return matching_credentials[0]
 
         print("[DEBUG] No matching credential found")
         # If we get here, no matching credential was found
@@ -968,10 +974,6 @@ class ClickHouseClientApp:
         )
 
         try:
-            # First disconnect from any existing connection
-            if self.db_manager.is_connected:
-                self.db_manager.disconnect()
-
             # Load credentials
             success, credentials, message = self.credentials_manager.load_credentials(
                 connection_name
@@ -982,6 +984,48 @@ class ClickHouseClientApp:
                     f"Failed to load credentials: {message}", error=True
                 )
                 return
+
+            # Check if we're already connected to the same database with the same credentials
+            # but the credential name is different (this can happen with duplicate saved connections)
+            should_reconnect = True
+            if self.db_manager.is_connected:
+                current = self.db_manager.connection_info
+                current_host = current.get("host", "")
+                current_port = str(current.get("port", ""))
+                current_user = current.get("username", "")
+                current_db = current.get("database", "")
+
+                # Check if the new connection matches the current one
+                saved_host = credentials.get("host", "")
+                saved_port = str(credentials.get("port", ""))
+                saved_user = credentials.get(
+                    "user", ""
+                )  # CredentialsManager uses "user"
+                saved_db = credentials.get("database", "")
+
+                if (
+                    saved_host == current_host
+                    and saved_port == current_port
+                    and saved_user == current_user
+                    and saved_db == current_db
+                ):
+                    # We're already connected to this database, no need to reconnect
+                    should_reconnect = False
+                    StatusManager.show_status(
+                        f"Already connected to {connection_name}", error=False
+                    )
+
+                    # Make sure the connection is expanded
+                    self.connections_expanded.add("current")
+
+                    # Refresh the table list to show the tables
+                    current_search = UIHelpers.safe_get_value("table_search", "")
+                    self.filter_tables_callback(None, current_search)
+                    return
+
+            # If we need to reconnect, disconnect first
+            if should_reconnect and self.db_manager.is_connected:
+                self.db_manager.disconnect()
 
             # Store loaded credentials
             self.stored_credentials = credentials
