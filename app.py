@@ -57,6 +57,9 @@ class ClickHouseClientApp:
         # Track connection expansion state (initialized as expanded)
         self.connections_expanded = set(["current"])
 
+        # Track currently selected table
+        self.selected_table = None
+
         # Initialize stored credentials for auto-connect
         self.stored_credentials = None
 
@@ -259,6 +262,9 @@ class ClickHouseClientApp:
             self.table_browser.clear_tables()
             self.data_explorer.close_explorer()
 
+            # Clear selected table
+            self.selected_table = None
+
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
@@ -388,6 +394,15 @@ class ClickHouseClientApp:
 
     def filter_tables_callback(self, sender, app_data):
         """Filter tables in the left panel based on the search query."""
+        # If this was triggered by search input (not programmatic call)
+        # get current scroll position only when it's a user-initiated search
+        preserve_scroll = sender is not None
+        if preserve_scroll:
+            try:
+                scroll_y = get_y_scroll("tables_panel")
+            except:
+                scroll_y = 0
+
         search_query = app_data.strip().lower()
         delete_item("tables_list", children_only=True)
 
@@ -434,11 +449,33 @@ class ClickHouseClientApp:
             else:
                 # Add filtered tables as children with indentation
                 for table in filtered_tables:
-                    add_button(
+                    table_button = add_button(
                         label=f"  {table}",  # Indent to show hierarchy
                         parent="tables_list",
                         callback=self.select_table_callback,
+                        tag=f"table_button_{table}",
                     )
+
+                    # Apply appropriate theme based on selection state
+                    if table == self.selected_table:
+                        # Apply selected table theme
+                        bind_item_theme(
+                            f"table_button_{table}",
+                            self.theme_manager.get_theme("selected_table_button"),
+                        )
+                    else:
+                        # Apply regular table button theme
+                        bind_item_theme(
+                            f"table_button_{table}",
+                            self.theme_manager.get_theme("table_button"),
+                        )
+
+        # If this was a search triggered by user input, restore the scroll position
+        if preserve_scroll:
+            try:
+                set_y_scroll("tables_panel", scroll_y)
+            except:
+                pass
 
     def select_table_callback(self, sender, app_data):
         """Handle table selection from the filtered list."""
@@ -448,6 +485,26 @@ class ClickHouseClientApp:
         if selected_table.startswith("  "):
             selected_table = selected_table.strip()
 
+        # Update the currently selected table
+        self.selected_table = selected_table
+
+        # Get current scroll position before refreshing
+        try:
+            scroll_y = get_y_scroll("tables_panel")
+        except:
+            scroll_y = 0
+
+        # Refresh the tables list to update highlighting
+        current_search = UIHelpers.safe_get_value("table_search", "")
+        self.filter_tables_callback(None, current_search)
+
+        # Restore scroll position after refresh
+        try:
+            set_y_scroll("tables_panel", scroll_y)
+        except:
+            pass
+
+        # Open the table in the data explorer
         self.data_explorer.open_explorer(selected_table, StatusManager.show_status)
 
     def _get_connection_display_name(self) -> str:
@@ -755,6 +812,12 @@ class ClickHouseClientApp:
 
     def toggle_connection_callback(self, sender, app_data):
         """Toggle the visibility of tables under a connection."""
+        # Get current scroll position before changing state
+        try:
+            scroll_y = get_y_scroll("tables_panel")
+        except:
+            scroll_y = 0
+
         if "current" in self.connections_expanded:
             # If expanded, collapse it
             self.connections_expanded.remove("current")
@@ -763,5 +826,12 @@ class ClickHouseClientApp:
             self.connections_expanded.add("current")
 
         # Re-filter tables with the current search query to update display
+        # This will also reapply any highlighting for selected tables
         current_search = UIHelpers.safe_get_value("table_search", "")
         self.filter_tables_callback(None, current_search)
+
+        # Restore scroll position after refresh
+        try:
+            set_y_scroll("tables_panel", scroll_y)
+        except:
+            pass
