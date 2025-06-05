@@ -136,10 +136,15 @@ def format_connection_string(host: str, port: str, database: str) -> str:
 
 class TableHelpers:
     """Helper functions for table operations."""
-    
+
     @staticmethod
-    def add_resizable_column(label: str, parent: str, initial_width: int = 250, 
-                           allow_stretch: bool = False, allow_resize: bool = True):
+    def add_resizable_column(
+        label: str,
+        parent: str,
+        initial_width: int = 350,
+        allow_stretch: bool = False,
+        allow_resize: bool = True,
+    ):
         """
         Add a table column with standardized resizing behavior.
         
@@ -158,10 +163,10 @@ class TableHelpers:
             parent=parent,
             init_width_or_weight=initial_width,
             width_stretch=allow_stretch,
-            width_fixed=not allow_stretch and not allow_resize,
-            no_resize=not allow_resize
+            width_fixed=False,  # Explicitly allow width changes
+            no_resize=not allow_resize,
         )
-    
+
     @staticmethod
     def create_data_table(tag: str, parent: str, enable_resize: bool = True, 
                          enable_sorting: bool = False):
