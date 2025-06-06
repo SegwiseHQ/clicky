@@ -1,5 +1,6 @@
 """Main application class for ClickHouse Client."""
 
+import time
 import traceback
 
 from dearpygui.dearpygui import *
@@ -37,6 +38,7 @@ class ClickHouseClientApp:
     """Main application class that orchestrates all components."""
 
     def __init__(self):
+        """Initialize application components."""
         # Initialize DearPyGUI first
         create_context()
         create_viewport(title=f"{icon_manager.get('database')} ClickHouse Client", width=MAIN_WINDOW_WIDTH, height=MAIN_WINDOW_HEIGHT)
@@ -45,18 +47,24 @@ class ClickHouseClientApp:
         self.theme_manager = ThemeManager()
         self.theme_manager.apply_global_theme()
 
-        # Initialize core components
+        # Components
         self.db_manager = DatabaseManager()
         self.credentials_manager = CredentialsManager()
         self.table_browser = TableBrowser(self.db_manager, self.theme_manager)
         self.query_interface = QueryInterface(self.db_manager, self.theme_manager)
         self.data_explorer = DataExplorer(self.db_manager, self.theme_manager)
 
-        # Set theme manager for StatusManager
-        StatusManager.set_theme_manager(self.theme_manager)
+        # Track connection expansion state (initialized as collapsed)
+        self.connections_expanded = set()
+
+        # Track currently selected table
+        self.selected_table = None
 
         # Initialize stored credentials for auto-connect
         self.stored_credentials = None
+
+        # Initialize status manager with theme
+        StatusManager.set_theme_manager(self.theme_manager)
 
         # Set up callbacks
         self.table_browser.set_double_click_callback(self.data_explorer.open_explorer)
@@ -104,7 +112,7 @@ class ClickHouseClientApp:
 
                     # Add group for table list
                     add_group(tag="tables_list")
-                    add_text("Connect to see tables", parent="tables_list", color=(128, 128, 128))
+                    # We'll populate this with saved connections in show_saved_connections()
 
                 # Right panel for query and results
                 with group(width=-1):
@@ -222,7 +230,9 @@ class ClickHouseClientApp:
                 self.save_credentials_callback(None, None)  # Auto-save on successful connection
 
                 # Automatically list tables after successful connection
-                self.table_browser.refresh_tables()
+                # Use our custom filtering to display connection and tables
+                current_search = UIHelpers.safe_get_value("table_search", "")
+                self.filter_tables_callback(None, current_search)
 
                 # Update button states
                 UIHelpers.safe_configure_item("connect_button", enabled=True)
@@ -252,6 +262,12 @@ class ClickHouseClientApp:
             self.table_browser.clear_tables()
             self.data_explorer.close_explorer()
 
+            # Clear selected table
+            self.selected_table = None
+
+            # Clear expanded connections state
+            self.connections_expanded.clear()
+
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
@@ -262,6 +278,9 @@ class ClickHouseClientApp:
             # Update button states
             UIHelpers.safe_configure_item("connect_button", enabled=True)
             UIHelpers.safe_configure_item("disconnect_button", enabled=False)
+
+            # Refresh connection list in the left panel
+            self.show_saved_connections()
 
         except Exception as e:
             StatusManager.show_status(f"Error during disconnect: {str(e)}", error=True)
@@ -309,6 +328,8 @@ class ClickHouseClientApp:
                 self.refresh_credentials_callback(None, None)
                 # Clear the name input
                 UIHelpers.safe_configure_item("credential_name_input", default_value="")
+                # Update the connections list
+                self.show_saved_connections()
 
         except Exception as e:
             StatusManager.show_status(f"Error saving credentials: {str(e)}", error=True)
@@ -381,35 +402,190 @@ class ClickHouseClientApp:
 
     def filter_tables_callback(self, sender, app_data):
         """Filter tables in the left panel based on the search query."""
+        # If this was triggered by search input (not programmatic call)
+        # get current scroll position only when it's a user-initiated search
+        preserve_scroll = sender is not None
+        if preserve_scroll:
+            try:
+                scroll_y = get_y_scroll("tables_panel")
+            except:
+                scroll_y = 0
+
         search_query = app_data.strip().lower()
         delete_item("tables_list", children_only=True)
 
         if not self.db_manager.is_connected:
-            add_text(
-                "Connect to see tables", parent="tables_list", color=(128, 128, 128)
-            )
+            # If not connected, show all saved connections
+            self.show_saved_connections()
+            return
+
+        # Get connection name for the parent node
+        connection_name = self._get_connection_display_name()
+
+        # Check if tables should be visible based on expand/collapse state
+        is_expanded = "current" in self.connections_expanded
+
+        # If connection is collapsed, simply show all saved connections
+        if not is_expanded:
+            self.show_saved_connections()
             return
 
         # Get all table names and filter them
-        all_tables = self.db_manager.get_tables()  # Corrected method name
+        all_tables = self.db_manager.get_tables()
         filtered_tables = [
             table for table in all_tables if search_query in table.lower()
         ]
 
+        # Get the appropriate visual indicator for expanded/collapsed state
+        expand_icon = "[-]" if is_expanded else "[+]"
+
+        # Add connection name as parent with clickable button and indicator
+        connection_button = f"connection_header_{int(time.time() * 1000)}"
+        add_button(
+            label=f"{expand_icon} {connection_name}",
+            parent="tables_list",
+            callback=self.toggle_connection_callback,
+            width=-1,
+            height=30,
+            tag=connection_button,
+        )
+
+        # Apply the table_button theme to the connection button
+        bind_item_theme(
+            connection_button, self.theme_manager.get_theme("selected_table_button")
+        )
+
+        # Show tables if we have any matching the filter
         if not filtered_tables:
-            add_text("No tables found", parent="tables_list", color=(255, 0, 0))
+            # Display message when no tables match search criteria
+            add_text("  No tables found", parent="tables_list", color=(255, 0, 0))
         else:
+            # Add filtered tables as children with indentation
             for table in filtered_tables:
-                add_button(
-                    label=table,
+                table_button = add_button(
+                    label=f"  {table}",  # Indent to show hierarchy
                     parent="tables_list",
                     callback=self.select_table_callback,
+                    tag=f"table_button_{table}",
                 )
+
+                # Apply appropriate theme based on selection state
+                if table == self.selected_table:
+                    # Apply selected table theme
+                    bind_item_theme(
+                        f"table_button_{table}",
+                        self.theme_manager.get_theme("selected_table_button"),
+                    )
+                else:
+                    # Apply regular table button theme
+                    bind_item_theme(
+                        f"table_button_{table}",
+                        self.theme_manager.get_theme("table_button"),
+                    )
+
+        # Only show other connections section if there are tables displayed
+        if filtered_tables:
+            # Add a separator before showing other connections
+            add_separator(parent="tables_list")
+            add_text("Other Connections:", parent="tables_list", color=(255, 193, 7))
+
+            # Show other available connections below the table list
+            credential_names = self.credentials_manager.get_credential_names()
+            current_connection_name = self._find_credential_name_for_connection()
+
+            # Filter out the current connection from the list
+            other_connections = [
+                name for name in credential_names if name != current_connection_name
+            ]
+
+            if other_connections:
+                for name in other_connections:
+                    connection_button = f"connection_{name}_{int(time.time() * 1000)}"
+                    add_button(
+                        label=f"{name}",
+                        parent="tables_list",
+                        callback=self.connect_to_saved_callback,
+                        user_data=name,
+                        width=-1,
+                        height=30,
+                        tag=connection_button,
+                    )
+                    bind_item_theme(
+                        connection_button, self.theme_manager.get_theme("table_button")
+                    )
+            else:
+                add_text(
+                    "  No other connections",
+                    parent="tables_list",
+                    color=(128, 128, 128),
+                )
+
+        # If this was a search triggered by user input, restore the scroll position
+        if preserve_scroll:
+            try:
+                set_y_scroll("tables_panel", scroll_y)
+            except:
+                pass
 
     def select_table_callback(self, sender, app_data):
         """Handle table selection from the filtered list."""
         selected_table = get_item_label(sender)
+
+        # Remove the indentation spaces if present
+        if selected_table.startswith("  "):
+            selected_table = selected_table.strip()
+
+        # Update the currently selected table
+        self.selected_table = selected_table
+
+        # Get current scroll position before refreshing
+        try:
+            scroll_y = get_y_scroll("tables_panel")
+        except:
+            scroll_y = 0
+
+        # Refresh the tables list to update highlighting
+        current_search = UIHelpers.safe_get_value("table_search", "")
+        self.filter_tables_callback(None, current_search)
+
+        # Restore scroll position after refresh
+        try:
+            set_y_scroll("tables_panel", scroll_y)
+        except:
+            pass
+
+        # Open the table in the data explorer
         self.data_explorer.open_explorer(selected_table, StatusManager.show_status)
+
+    def _get_connection_display_name(self) -> str:
+        """Get a formatted display name for the current connection."""
+        if not self.db_manager.is_connected or not self.db_manager.connection_info:
+            return "Not Connected"
+
+        # Try to find the saved credential name for this connection
+        connection_name = self._find_credential_name_for_connection()
+
+        # If we found a saved name, use it as the display name
+        if connection_name:
+            # Use the saved name directly without emojis
+            return connection_name
+
+        # Fallback to technical connection info if no saved name is found
+        info = self.db_manager.connection_info
+        host = info.get("host", "Unknown")
+        port = info.get("port", "Unknown")
+        database = info.get("database", "Unknown")
+
+        # Create a readable connection name without emojis
+        if "clickhouse.cloud" in str(host).lower():
+            # For cloud connections, show a cleaner name
+            return f"{host}/{database}"
+        elif host in ["localhost", "127.0.0.1"]:
+            # For local connections
+            return f"Local ({database})"
+        else:
+            # For other remote connections
+            return f"{host}:{port}/{database}"
 
     def _set_form_values(self, credentials: dict):
         """Set form values from credentials dictionary."""
@@ -428,9 +604,9 @@ class ClickHouseClientApp:
         UIHelpers.safe_configure_item("database_input", default_value=DEFAULT_DATABASE)
 
     def auto_load_and_connect(self):
-        """Auto-load credentials and attempt connection on startup."""
+        """Auto-load credentials without attempting connection on startup."""
         try:
-            print("[DEBUG] Starting auto_load_and_connect")
+            print("[DEBUG] Starting auto_load_credentials")
 
             # Refresh credentials list first
             self.refresh_credentials_callback(None, None)
@@ -445,28 +621,28 @@ class ClickHouseClientApp:
                 print(f"[DEBUG] Credentials found: {credentials}")
 
             if success and credentials:
-                StatusManager.show_status("Credentials loaded automatically on startup")
+                StatusManager.show_status(
+                    "Credentials loaded automatically. Click 'Connect' to establish connection."
+                )
 
                 # Store the credentials for later use
                 self.stored_credentials = credentials
 
-                # Only auto-connect if we have valid credentials
-                if all([credentials["host"], credentials["port"], credentials["user"], credentials["database"]]):
-                    print("[DEBUG] Valid credentials found, attempting auto-connect")
-                    print(
-                        f"[DEBUG] Auto-connect credentials: host={credentials['host']}, port={credentials['port']}, user={credentials['user']}, database={credentials['database']}"
-                    )
-                    StatusManager.show_status("Attempting automatic connection...")
-                    self.connect_callback(None, None)
-                else:
-                    print(f"[DEBUG] Invalid credentials: {credentials}")
+                # Set form values without connecting
+                self._set_form_values(credentials)
+
+                # No auto-connecting anymore
+                print(f"[DEBUG] Credentials loaded but not auto-connecting")
             else:
                 print("[DEBUG] No credentials found or load failed")
-                StatusManager.show_status("No saved credentials found", error=False)
+                StatusManager.show_status(
+                    "No saved credentials found. Please enter connection details.",
+                    error=False,
+                )
 
         except Exception as e:
-            print(f"[DEBUG] Auto-connect exception: {str(e)}")
-            StatusManager.show_status(f"Auto-connect failed: {str(e)}", error=True)
+            print(f"[DEBUG] Auto-load exception: {str(e)}")
+            StatusManager.show_status(f"Auto-load failed: {str(e)}", error=True)
 
     def show_connection_settings_modal(self):
         """Show a modal dialog for connection settings."""
@@ -498,10 +674,10 @@ class ClickHouseClientApp:
                     label="Refresh",
                     callback=self.refresh_credentials_callback,
                     width=80,
-                    tag="refresh_button",
+                    tag="save_as_button",
                 )
                 bind_item_theme(
-                    "refresh_button", self.theme_manager.get_theme("button_secondary")
+                    "save_as_button", self.theme_manager.get_theme("button_secondary")
                 )
 
             add_text("Save New Connection:")
@@ -631,8 +807,239 @@ class ClickHouseClientApp:
         setup_dearpygui()
         show_viewport()
 
-        # Auto-connect after UI is fully initialized
+        # Just load credentials without auto-connecting
         self.auto_load_and_connect()
+
+        # Show saved connections in the left panel
+        self.show_saved_connections()
 
         start_dearpygui()
         destroy_context()
+
+    def _find_credential_name_for_connection(self) -> str:
+        """Find the saved credential name that matches the current connection."""
+        if not self.db_manager.is_connected or not self.db_manager.connection_info:
+            return ""
+
+        # Get current connection info
+        current = self.db_manager.connection_info
+        current_host = current.get("host", "")
+        current_port = str(current.get("port", ""))
+        current_user = current.get("username", "")  # DatabaseManager uses "username"
+        current_db = current.get("database", "")
+
+        print(
+            f"[DEBUG] Current connection: host={current_host}, port={current_port}, user={current_user}, db={current_db}"
+        )
+
+        # Get all credential names
+        credential_names = self.credentials_manager.get_credential_names()
+        print(f"[DEBUG] Available credential names: {credential_names}")
+
+        # Check each saved credential for a match
+        matching_credentials = []
+
+        for name in credential_names:
+            success, cred, _ = self.credentials_manager.load_credentials(name)
+            if success:
+                saved_host = cred.get("host", "")
+                saved_port = str(cred.get("port", ""))
+                saved_user = cred.get("user", "")  # CredentialsManager uses "user"
+                saved_db = cred.get("database", "")
+
+                print(
+                    f"[DEBUG] Comparing with '{name}': host={saved_host}, port={saved_port}, user={saved_user}, db={saved_db}"
+                )
+
+                # Check if this credential matches our current connection
+                if (
+                    saved_host == current_host
+                    and saved_port == current_port
+                    and saved_user == current_user
+                    and saved_db == current_db
+                ):
+                    print(f"[DEBUG] Found matching credential: {name}")
+                    matching_credentials.append(name)
+
+        # If we found multiple matches, return the first one
+        if matching_credentials:
+            return matching_credentials[0]
+
+        print("[DEBUG] No matching credential found")
+        # If we get here, no matching credential was found
+        return ""
+
+    def toggle_connection_callback(self, sender, app_data):
+        """Toggle the visibility of tables under a connection."""
+        # Get current scroll position before changing state
+        try:
+            scroll_y = get_y_scroll("tables_panel")
+        except:
+            scroll_y = 0
+
+        if "current" in self.connections_expanded:
+            # If expanded, collapse it
+            self.connections_expanded.remove("current")
+
+            # When collapsed, show all saved connections
+            self.show_saved_connections()
+        else:
+            # If collapsed, expand it
+            self.connections_expanded.add("current")
+
+            # Re-filter tables with the current search query to update display
+            current_search = UIHelpers.safe_get_value("table_search", "")
+            self.filter_tables_callback(None, current_search)
+
+        # Restore scroll position after refresh
+        try:
+            set_y_scroll("tables_panel", scroll_y)
+        except:
+            pass
+
+    def show_saved_connections(self):
+        """Show all saved connections in the left panel."""
+        # Clear the left panel
+        delete_item("tables_list", children_only=True)
+
+        # Get list of all saved credential names
+        credential_names = self.credentials_manager.get_credential_names()
+
+        if not credential_names:
+            add_text(
+                "No saved connections found", parent="tables_list", color=(255, 128, 0)
+            )
+            return
+
+        # Find the currently active connection name, if any
+        current_name = ""
+        if self.db_manager.is_connected and self.db_manager.connection_info:
+            current_name = self._find_credential_name_for_connection()
+
+        # Display each saved connection as a button
+        for name in credential_names:
+            connection_button = f"connection_{name}_{int(time.time() * 1000)}"
+
+            # Check if this is the currently active connection
+            is_active = name == current_name
+
+            # Create button with appropriate icon
+            connection_status = "[Active] " if is_active else ""
+            add_button(
+                label=f"{connection_status}{name}",
+                parent="tables_list",
+                callback=self.connect_to_saved_callback,
+                user_data=name,  # Pass the credential name as user_data
+                width=-1,
+                height=30,
+                tag=connection_button,
+            )
+
+            # Apply theme based on active status
+            if is_active and self.db_manager.is_connected:
+                bind_item_theme(
+                    connection_button,
+                    self.theme_manager.get_theme("selected_table_button"),
+                )
+            else:
+                bind_item_theme(
+                    connection_button, self.theme_manager.get_theme("table_button")
+                )
+
+    def connect_to_saved_callback(self, sender, app_data, user_data):
+        """Handle clicking on a saved connection to connect to it."""
+        # Get connection name from user_data
+        connection_name = user_data
+
+        # Check if we're already connected to this connection
+        current_connection_name = ""
+        if self.db_manager.is_connected:
+            current_connection_name = self._find_credential_name_for_connection()
+
+        # If already connected to this connection, just toggle expansion
+        if current_connection_name == connection_name and self.db_manager.is_connected:
+            # Toggle the connection expansion state
+            if "current" in self.connections_expanded:
+                self.connections_expanded.remove("current")
+                self.show_saved_connections()
+            else:
+                self.connections_expanded.add("current")
+                current_search = UIHelpers.safe_get_value("table_search", "")
+                self.filter_tables_callback(None, current_search)
+            return
+
+        # Show connecting status
+        StatusManager.show_status(
+            f"Connecting to {connection_name}... Please wait", error=False
+        )
+
+        try:
+            # Load credentials
+            success, credentials, message = self.credentials_manager.load_credentials(
+                connection_name
+            )
+
+            if not success or not credentials:
+                StatusManager.show_status(
+                    f"Failed to load credentials: {message}", error=True
+                )
+                return
+
+            # Check if we're already connected to the same database with the same credentials
+            # but the credential name is different (this can happen with duplicate saved connections)
+            should_reconnect = True
+            if self.db_manager.is_connected:
+                current = self.db_manager.connection_info
+                current_host = current.get("host", "")
+                current_port = str(current.get("port", ""))
+                current_user = current.get("username", "")
+                current_db = current.get("database", "")
+
+                # Check if the new connection matches the current one
+                saved_host = credentials.get("host", "")
+                saved_port = str(credentials.get("port", ""))
+                saved_user = credentials.get(
+                    "user", ""
+                )  # CredentialsManager uses "user"
+                saved_db = credentials.get("database", "")
+
+                if (
+                    saved_host == current_host
+                    and saved_port == current_port
+                    and saved_user == current_user
+                    and saved_db == current_db
+                ):
+                    # We're already connected to this database, no need to reconnect
+                    should_reconnect = False
+                    StatusManager.show_status(
+                        f"Already connected to {connection_name}", error=False
+                    )
+
+                    # Make sure the connection is expanded
+                    self.connections_expanded.add("current")
+
+                    # Refresh the table list to show the tables
+                    current_search = UIHelpers.safe_get_value("table_search", "")
+                    self.filter_tables_callback(None, current_search)
+                    return
+
+            # If we need to reconnect, disconnect first
+            if should_reconnect and self.db_manager.is_connected:
+                self.db_manager.disconnect()
+
+            # Store loaded credentials
+            self.stored_credentials = credentials
+
+            # Connect using these credentials
+            self.connect_callback(None, None)
+
+            # After connecting successfully, make sure the connection is expanded
+            self.connections_expanded.add("current")
+
+            # Refresh the table list to show the tables
+            current_search = UIHelpers.safe_get_value("table_search", "")
+            self.filter_tables_callback(None, current_search)
+
+        except Exception as e:
+            error_msg = f"Failed to connect to {connection_name}: {str(e)}"
+            StatusManager.show_status(error_msg, error=True)
