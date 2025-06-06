@@ -124,13 +124,16 @@ class UILayout:
             with collapsing_header(label=f"{icon_manager.get('filter')} Filters", default_open=False):
                 add_text("Add filters for columns:")
                 add_group(tag="explorer_filters")
-                add_button(label="Clear Filters", tag="explorer_clear_filters_button")
 
-            # Control buttons
-            with group(horizontal=True):
-                add_text("Limit:")
-                add_input_text(tag="explorer_limit", default_value="100", width=80)
-                add_button(label="Apply Limit", tag="explorer_apply_limit_button")
+                # Limit controls
+                with group(horizontal=True):
+                    add_text("Limit:")
+                    add_input_text(tag="explorer_limit", default_value="100", width=60)
+                    add_button(
+                        label="Apply", tag="explorer_apply_limit_button", width=60
+                    )
+
+                add_button(label="Clear Filters", tag="explorer_clear_filters_button")
 
             # Toggle button row
             with group(horizontal=True):

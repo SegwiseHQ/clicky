@@ -81,19 +81,19 @@ class DataExplorer:
         try:
             # Ensure explorer section is visible
             configure_item("explorer_section", show=True)
-            
+
             # Verify data window exists and is visible
             configure_item("explorer_data_window", show=True)
-            
+
             # For safety, verify the main table panel exists
             if does_item_exist("explorer_main_table"):
                 delete_item("explorer_main_table", children_only=True)
                 add_text("Loading data preview...", parent="explorer_main_table", color=(255, 255, 0))
-            
+
             # Clear row details panel if it exists
             if does_item_exist("explorer_row_details"):
                 self._clear_row_details()
-                
+
         except Exception as e:
             print(f"[DataExplorer] Error in explorer setup: {e}")
             if status_callback:
@@ -200,7 +200,7 @@ class DataExplorer:
                 if status_callback:
                     status_callback("Error: Main table panel is not available. Please restart.", True)
                 return
-                
+
             # Clear existing data completely from main table panel
             delete_item("explorer_main_table", children_only=True)
 
@@ -211,7 +211,7 @@ class DataExplorer:
 
             # Create data table with borders and headers - use unique tag to force recreation
             table_tag = f"explorer_data_table_{int(time.time() * 1000)}"
-            
+
             try:
                 add_table(
                     tag=table_tag,
@@ -337,6 +337,12 @@ class DataExplorer:
         except:
             pass  # Filter input doesn't exist yet
 
+        # Reset limit to default value of 100
+        try:
+            configure_item("explorer_limit", default_value="100")
+        except:
+            pass  # Limit input doesn't exist yet
+
         # Clear row details
         self._clear_row_details()
 
@@ -388,30 +394,30 @@ class DataExplorer:
             col_idx = user_data["col_idx"]
             cell_value = user_data["cell_value"]
             row_data = user_data["row_data"]
-            
+
             # Copy cell value to clipboard (existing functionality)
             set_clipboard_text(cell_value)
-            
+
             # Show brief feedback for copy
             if hasattr(self, '_last_status_callback') and self._last_status_callback:
                 self._last_status_callback(f"Copied to clipboard: {cell_value[:50]}{'...' if len(cell_value) > 50 else ''}")
-            
+
             # Update row details panel
             self._update_row_details(row_data, row_idx)
-            
+
         except Exception as e:
             print(f"Error handling cell click: {e}")
-    
+
     def _update_row_details(self, row_data, row_idx):
         """Update the row details panel with the selected row's data."""
         try:
             # Clear existing row details
             delete_item("explorer_row_details", children_only=True)
-            
+
             # Add header
             add_text(f"Row {row_idx + 1} Details", parent="explorer_row_details", color=(255, 193, 7))
             add_separator(parent="explorer_row_details")
-            
+
             # Create a scrollable table for column:value pairs
             details_table_tag = f"row_details_table_{int(time.time() * 1000)}"
             add_table(
@@ -427,11 +433,11 @@ class DataExplorer:
                 width=-1,
                 resizable=True
             )
-            
+
             # Add columns for the details table
             add_table_column(label="Column", parent=details_table_tag, init_width_or_weight=120)
             add_table_column(label="Value", parent=details_table_tag, init_width_or_weight=250)
-            
+
             # Add row data
             for col_idx, (column_name, value) in enumerate(zip(self.current_column_names, row_data)):
                 with table_row(parent=details_table_tag):
@@ -444,7 +450,7 @@ class DataExplorer:
                         callback=self._copy_detail_to_clipboard,
                         user_data=column_name
                     )
-                    
+
                     # Column value
                     formatted_value = self._format_cell_value(value)
                     add_selectable(
@@ -455,16 +461,16 @@ class DataExplorer:
                         callback=self._copy_detail_to_clipboard,
                         user_data=formatted_value
                     )
-            
+
             # Store selected row data
             self.selected_row_data = row_data
-            
+
         except Exception as e:
             # Fallback error display
             delete_item("explorer_row_details", children_only=True)
             add_text(f"Error displaying row details: {str(e)}", 
                     parent="explorer_row_details", color=(255, 0, 0))
-    
+
     def _clear_row_details(self):
         """Clear the row details panel."""
         try:
@@ -473,19 +479,19 @@ class DataExplorer:
             self.selected_row_data = None
         except:
             pass  # Ignore errors if panel doesn't exist
-    
+
     def _copy_detail_to_clipboard(self, sender, app_data, user_data):
         """Copy detail value to clipboard when clicked."""
         try:
             # Get the value from user_data
             detail_text = user_data if user_data else ""
-            
+
             # Use DearPyGui's set_clipboard_text to copy to system clipboard
             set_clipboard_text(detail_text)
-            
+
             # Show brief feedback
             if hasattr(self, '_last_status_callback') and self._last_status_callback:
                 self._last_status_callback(f"Copied to clipboard: {detail_text[:50]}{'...' if len(detail_text) > 50 else ''}")
-                
+
         except Exception as e:
             print(f"Error copying detail to clipboard: {e}")
