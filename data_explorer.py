@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set
 
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT, TABLE_ROW_HEIGHT
+from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT, TABLE_ROW_HEIGHT, ROW_DETAILS_PANEL_WIDTH
 from database import DatabaseManager
 from utils import FontManager, TableHelpers, UIHelpers
 
@@ -19,6 +19,8 @@ class DataExplorer:
         self.current_table: Optional[str] = None
         self.filters: Dict[str, str] = {}
         self.table_theme = None
+        self.selected_row_data = None  # Store selected row data for details panel
+        self.current_column_names = []  # Store current column names
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -69,15 +71,27 @@ class DataExplorer:
         self._setup_filters()
 
         # Clear existing data window and show loading message
-        # Ensure explorer_data_window exists and is visible before adding children
+        # First make sure items exist and are visible
         try:
+            # Ensure explorer section is visible
+            configure_item("explorer_section", show=True)
+            
+            # Verify data window exists and is visible
             configure_item("explorer_data_window", show=True)
-            delete_item("explorer_data_window", children_only=True)
-            add_text("Loading data preview...", parent="explorer_data_window", color=(255, 255, 0))
+            
+            # For safety, verify the main table panel exists
+            if does_item_exist("explorer_main_table"):
+                delete_item("explorer_main_table", children_only=True)
+                add_text("Loading data preview...", parent="explorer_main_table", color=(255, 255, 0))
+            
+            # Clear row details panel if it exists
+            if does_item_exist("explorer_row_details"):
+                self._clear_row_details()
+                
         except Exception as e:
-            print(f"[DataExplorer] Error: explorer_data_window not available: {e}")
+            print(f"[DataExplorer] Error in explorer setup: {e}")
             if status_callback:
-                status_callback("Error: Data explorer view is not available. Please restart the application.", True)
+                status_callback(f"Error setting up data explorer: {str(e)}", True)
             return False
 
         # Load initial data preview
@@ -88,6 +102,8 @@ class DataExplorer:
         """Close data explorer and return to query interface."""
         self.current_table = None
         self.filters.clear()
+        self.selected_row_data = None
+        self.current_column_names = []
 
         # Hide explorer section
         configure_item("explorer_section", show=False)
@@ -170,30 +186,47 @@ class DataExplorer:
             if status_callback:
                 status_callback(f"Query executed. Columns: {result.column_names}, Row count: {len(result.result_rows)}")
 
-            # Clear existing data completely
-            delete_item("explorer_data_window", children_only=True)
+            # Store current data for row details
+            self.current_column_names = result.column_names
+
+            # Make sure the explorer_main_table exists before attempting to clear it
+            if not does_item_exist("explorer_main_table"):
+                if status_callback:
+                    status_callback("Error: Main table panel is not available. Please restart.", True)
+                return
+                
+            # Clear existing data completely from main table panel
+            delete_item("explorer_main_table", children_only=True)
 
             if not result.result_rows:
-                add_text("No data found", parent="explorer_data_window", color=(128, 128, 128))
+                add_text("No data found", parent="explorer_main_table", color=(128, 128, 128))
+                self._clear_row_details()
                 return
 
             # Create data table with borders and headers - use unique tag to force recreation
             table_tag = f"explorer_data_table_{int(time.time() * 1000)}"
-            add_table(
-                tag=table_tag,
-                parent="explorer_data_window",
-                borders_innerH=True,
-                borders_innerV=True,
-                borders_outerH=True,
-                borders_outerV=True,
-                header_row=True,
-                scrollX=True,
-                scrollY=True,
-                freeze_rows=1,
-                height=-1,
-                resizable=True,
-                policy=mvTable_SizingFixedFit,
-            )  # Enable column resizing, fixed fit policy
+            
+            try:
+                add_table(
+                    tag=table_tag,
+                    parent="explorer_main_table",
+                    borders_innerH=True,
+                    borders_innerV=True,
+                    borders_outerH=True,
+                    borders_outerV=True,
+                    header_row=True,
+                    scrollX=True,
+                    scrollY=True,
+                    freeze_rows=1,
+                    height=-1,
+                    resizable=True,
+                    policy=mvTable_SizingFixedFit,
+                )  # Enable column resizing, fixed fit policy
+            except Exception as table_e:
+                print(f"[DataExplorer] Error creating table: {table_e}")
+                add_text(f"Error creating data table: {str(table_e)}", 
+                        parent="explorer_main_table", color=(255, 0, 0))
+                return
 
             # Apply theme for larger row height
             if self.table_theme:
@@ -243,21 +276,21 @@ class DataExplorer:
                     except Exception:
                         pass
 
-            # Add rows with proper encoding handling and selectable cells with copy functionality
+            # Add rows with proper encoding handling and selectable cells with row selection functionality
             for row_idx, row in enumerate(result.result_rows):
                 with table_row(parent=table_tag):
                     for col_idx, val in enumerate(row):
                         # Handle special characters and encoding properly
                         try:
                             cell_value = self._format_cell_value(val)
-                            # Use selectable widget with click callback to copy text
+                            # Use selectable widget with row selection callback
                             add_selectable(
                                 label=cell_value,
                                 tag=f"cell_{row_idx}_{col_idx}",
                                 span_columns=False,
                                 height=0,  # Auto height
-                                callback=self._copy_cell_to_clipboard,
-                                user_data=cell_value  # Pass the actual cell text for copying
+                                callback=self._handle_cell_click,
+                                user_data={"row_idx": row_idx, "col_idx": col_idx, "cell_value": cell_value, "row_data": row}
                             )
                         except Exception as e:
                             # Fallback for any encoding issues
@@ -267,8 +300,8 @@ class DataExplorer:
                                 tag=f"cell_error_{row_idx}_{col_idx}",
                                 span_columns=False,
                                 height=0,
-                                callback=self._copy_cell_to_clipboard,
-                                user_data=error_text
+                                callback=self._handle_cell_click,
+                                user_data={"row_idx": row_idx, "col_idx": col_idx, "cell_value": error_text, "row_data": row}
                             )
 
             # Update status
@@ -277,9 +310,10 @@ class DataExplorer:
 
         except Exception as e:
             # Clear existing data
-            delete_item("explorer_data_window", children_only=True)
+            delete_item("explorer_main_table", children_only=True)
             add_text(f"Error loading data: {str(e)}", 
-                    parent="explorer_data_window", color=(255, 0, 0))
+                    parent="explorer_main_table", color=(255, 0, 0))
+            self._clear_row_details()
             if status_callback:
                 status_callback(f"Explorer error: {str(e)}", True)
 
@@ -296,6 +330,9 @@ class DataExplorer:
             configure_item("explorer_order_by", default_value="")
         except:
             pass  # Filter input doesn't exist yet
+
+        # Clear row details
+        self._clear_row_details()
 
         # Refresh data with cleared filters
         self.refresh_data()
@@ -336,3 +373,113 @@ class DataExplorer:
             cell_value = cell_value[:MAX_CELL_LENGTH-3] + "..."
 
         return cell_value
+
+    def _handle_cell_click(self, sender, app_data, user_data):
+        """Handle cell click for both copying to clipboard and showing row details."""
+        try:
+            # Extract data from user_data
+            row_idx = user_data["row_idx"]
+            col_idx = user_data["col_idx"]
+            cell_value = user_data["cell_value"]
+            row_data = user_data["row_data"]
+            
+            # Copy cell value to clipboard (existing functionality)
+            set_clipboard_text(cell_value)
+            
+            # Show brief feedback for copy
+            if hasattr(self, '_last_status_callback') and self._last_status_callback:
+                self._last_status_callback(f"Copied to clipboard: {cell_value[:50]}{'...' if len(cell_value) > 50 else ''}")
+            
+            # Update row details panel
+            self._update_row_details(row_data, row_idx)
+            
+        except Exception as e:
+            print(f"Error handling cell click: {e}")
+    
+    def _update_row_details(self, row_data, row_idx):
+        """Update the row details panel with the selected row's data."""
+        try:
+            # Clear existing row details
+            delete_item("explorer_row_details", children_only=True)
+            
+            # Add header
+            add_text(f"Row {row_idx + 1} Details", parent="explorer_row_details", color=(255, 193, 7))
+            add_separator(parent="explorer_row_details")
+            
+            # Create a scrollable table for column:value pairs
+            details_table_tag = f"row_details_table_{int(time.time() * 1000)}"
+            add_table(
+                tag=details_table_tag,
+                parent="explorer_row_details",
+                borders_innerH=True,
+                borders_innerV=True,
+                borders_outerH=True,
+                borders_outerV=True,
+                header_row=True,
+                scrollY=True,
+                height=-1,
+                width=-1,
+                resizable=True
+            )
+            
+            # Add columns for the details table
+            add_table_column(label="Column", parent=details_table_tag, init_width_or_weight=120)
+            add_table_column(label="Value", parent=details_table_tag, init_width_or_weight=250)
+            
+            # Add row data
+            for col_idx, (column_name, value) in enumerate(zip(self.current_column_names, row_data)):
+                with table_row(parent=details_table_tag):
+                    # Column name
+                    add_selectable(
+                        label=column_name,
+                        tag=f"detail_col_{col_idx}",
+                        span_columns=False,
+                        height=0,
+                        callback=self._copy_detail_to_clipboard,
+                        user_data=column_name
+                    )
+                    
+                    # Column value
+                    formatted_value = self._format_cell_value(value)
+                    add_selectable(
+                        label=formatted_value,
+                        tag=f"detail_val_{col_idx}",
+                        span_columns=False,
+                        height=0,
+                        callback=self._copy_detail_to_clipboard,
+                        user_data=formatted_value
+                    )
+            
+            # Store selected row data
+            self.selected_row_data = row_data
+            
+        except Exception as e:
+            # Fallback error display
+            delete_item("explorer_row_details", children_only=True)
+            add_text(f"Error displaying row details: {str(e)}", 
+                    parent="explorer_row_details", color=(255, 0, 0))
+    
+    def _clear_row_details(self):
+        """Clear the row details panel."""
+        try:
+            delete_item("explorer_row_details", children_only=True)
+            add_text("Select a row to view details", parent="explorer_row_details", color=(128, 128, 128))
+            self.selected_row_data = None
+        except:
+            pass  # Ignore errors if panel doesn't exist
+    
+    def _copy_detail_to_clipboard(self, sender, app_data, user_data):
+        """Copy detail value to clipboard when clicked."""
+        try:
+            # Get the value from user_data
+            detail_text = user_data if user_data else ""
+            
+            # Use DearPyGui's set_clipboard_text to copy to system clipboard
+            set_clipboard_text(detail_text)
+            
+            # Show brief feedback
+            if hasattr(self, '_last_status_callback') and self._last_status_callback:
+                self._last_status_callback(f"Copied to clipboard: {detail_text[:50]}{'...' if len(detail_text) > 50 else ''}")
+                
+        except Exception as e:
+            print(f"Error copying detail to clipboard: {e}")

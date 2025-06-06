@@ -169,16 +169,39 @@ class ClickHouseClientApp:
 
             # Control buttons
             with group(horizontal=True):
-                add_button(label="Clear Filters", callback=self.data_explorer.clear_filters)
+                add_button(label="Refresh Data", tag="explorer_refresh_button", 
+                           callback=lambda: self.data_explorer.refresh_data(StatusManager.show_status))
+                add_button(label="Clear Filters", tag="explorer_clear_filters_button", 
+                           callback=self.data_explorer.clear_filters)
                 add_text("Limit:")
                 add_input_text(tag="explorer_limit", default_value="100", width=80)
-                add_button(label="Apply Limit", callback=lambda: self.data_explorer.refresh_data(StatusManager.show_status))
+                add_button(label="Apply Limit", tag="explorer_apply_limit_button", 
+                           callback=lambda: self.data_explorer.refresh_data(StatusManager.show_status))
 
             add_separator()
 
-            # Data window - fills remaining vertical space
+            # Data window with horizontal split - fills remaining vertical space
             with child_window(label="Data", tag="explorer_data_window", border=True, height=-1):
-                add_text("Loading data...", color=(128, 128, 128))
+                with group(horizontal=True):
+                    # Left panel: Main data table
+                    with child_window(
+                        label="Table Data", 
+                        tag="explorer_main_table", 
+                        border=True, 
+                        width=-410,  # Leave space for right panel + some margin
+                        height=-1
+                    ):
+                        add_text("Loading data...", color=(128, 128, 128))
+                    
+                    # Right panel: Row details
+                    with child_window(
+                        label="Row Details", 
+                        tag="explorer_row_details", 
+                        border=True, 
+                        width=400,
+                        height=-1
+                    ):
+                        add_text("Select a row to view details", color=(128, 128, 128), tag="row_details_placeholder")
 
     def connect_callback(self, sender, data):
         """Handle database connection."""

@@ -29,6 +29,11 @@ TABLE_BUTTON_HEIGHT = 30
 COLUMN_WIDTH = 400  # Updated to match data explorer width
 RESULTS_COLUMN_WIDTH = 350  # Updated to match query results width
 
+# Data Explorer panel settings
+ROW_DETAILS_PANEL_WIDTH = 400  # Width of the row details panel on the right
+ROW_DETAILS_PANEL_MIN_WIDTH = 250  # Minimum width for the row details panel
+ROW_DETAILS_PANEL_MAX_WIDTH = 600  # Maximum width for the row details panel
+
 # Colors (RGB tuples) - Enhanced color palette
 COLOR_SUCCESS = (40, 167, 69)        # Bootstrap success green
 COLOR_ERROR = (220, 53, 69)          # Bootstrap danger red  
