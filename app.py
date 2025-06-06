@@ -7,6 +7,7 @@ from dearpygui.dearpygui import *
 
 from components.connection_manager import ConnectionManager
 from components.credentials_ui import CredentialsUI
+from components.splash_screen import SplashScreenManager
 from components.table_browser_ui import TableBrowserUI
 from components.ui_layout import UILayout
 from config import (
@@ -40,16 +41,25 @@ class ClickHouseClientApp:
         create_context()
         create_viewport(title=f"{icon_manager.get('database')} ClickHouse Client", width=MAIN_WINDOW_WIDTH, height=MAIN_WINDOW_HEIGHT)
 
+        # Initialize and show splash screen
+        self.splash_manager = SplashScreenManager()
+        self.splash_manager.show_splash()
+        self.splash_manager.next_step("Initializing DearPyGUI...")
+
         # Initialize theme manager and apply global theme
         self.theme_manager = ThemeManager()
         self.theme_manager.apply_global_theme()
+        self.splash_manager.next_step("Loading theme manager...")
 
         # Core components
         self.db_manager = DatabaseManager()
         self.credentials_manager = CredentialsManager()
+        self.splash_manager.next_step("Setting up database manager...")
+
         self.table_browser = TableBrowser(self.db_manager, self.theme_manager)
         self.query_interface = QueryInterface(self.db_manager, self.theme_manager)
         self.data_explorer = DataExplorer(self.db_manager, self.theme_manager)
+        self.splash_manager.next_step("Configuring credentials manager...")
 
         # New refactored components
         self.connection_manager = ConnectionManager(
@@ -59,17 +69,19 @@ class ClickHouseClientApp:
             self.db_manager, self.credentials_manager, self.theme_manager
         )
         self.credentials_ui = CredentialsUI(
-            self.credentials_manager, self.theme_manager, self.connection_manager
+            self.credentials_manager, self.connection_manager, self.theme_manager
         )
         self.ui_layout = UILayout(
             self.theme_manager, self.table_browser_ui, self.data_explorer
         )
+        self.splash_manager.next_step("Initializing UI components...")
 
         # Initialize stored credentials for auto-connect
         self.stored_credentials = None
 
         # Initialize status manager with theme
         StatusManager.set_theme_manager(self.theme_manager)
+        self.splash_manager.next_step("Setting up callbacks...")
 
         # Set up callbacks between components
         self.table_browser.set_double_click_callback(self.data_explorer.open_explorer)
@@ -203,6 +215,7 @@ class ClickHouseClientApp:
 
     def run(self):
         """Run the application."""
+        self.splash_manager.next_step("Finalizing setup...")
         self.setup_ui()
 
         setup_dearpygui()
@@ -213,6 +226,9 @@ class ClickHouseClientApp:
 
         # Show saved connections in the left panel
         self.show_saved_connections()
+
+        # Hide splash screen now that everything is ready
+        self.splash_manager.complete()
 
         start_dearpygui()
         destroy_context()

@@ -187,26 +187,37 @@ class CredentialsManager:
             return False, None, "No credentials found"
 
         # Try to find the best credential set to use
-        # Priority: 1) cloud connections, 2) non-localhost, 3) any credential
+        # Priority: 1) cloud connections with valid passwords, 2) non-localhost with valid passwords, 3) any valid credential
         best_name = None
+        fallback_name = None
 
         for name in names:
             success, creds, _ = self.load_credentials(name)
             if success and creds:
                 host = creds.get("host", "")
-                # Prioritize cloud and remote connections over localhost
+                password = creds.get("password", "")
+                has_valid_password = len(password.strip()) > 0
+                
+                # Prioritize cloud and remote connections over localhost, but only if they have valid passwords
                 if "clickhouse.cloud" in host or (
                     "localhost" not in host and "127.0.0.1" not in host and host != ""
                 ):
-                    best_name = name
-                    break
-                elif best_name is None:  # Use first valid credential as fallback
-                    best_name = name
+                    if has_valid_password:
+                        best_name = name
+                        break  # Found ideal credential - cloud/remote with valid password
+                    elif best_name is None:
+                        fallback_name = name  # Keep as fallback if no better option found
+                elif best_name is None and fallback_name is None:  # Use first valid credential as ultimate fallback
+                    if has_valid_password:
+                        fallback_name = name
 
-        if best_name is None:
-            best_name = names[0]  # Ultimate fallback
+        # Use best found credential, or fallback if no ideal one exists
+        chosen_name = best_name or fallback_name
+        
+        if chosen_name is None:
+            chosen_name = names[0]  # Ultimate fallback - use first credential even if password is empty
 
-        return self.load_credentials(best_name)
+        return self.load_credentials(chosen_name)
 
     def save_credentials_legacy(self, host: str, port: str, username: str, 
                                password: str, database: str) -> Tuple[bool, str]:

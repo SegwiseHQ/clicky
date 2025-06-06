@@ -221,6 +221,10 @@ class ConnectionManager:
                 # Store the credentials for later use
                 self.stored_credentials = credentials
 
+                # Populate the form with the loaded credentials
+                self.set_form_values(credentials)
+                print(f"[DEBUG] Form populated with auto-loaded credentials")
+
                 # No auto-connecting anymore
                 print(f"[DEBUG] Credentials loaded but not auto-connecting")
             else:
