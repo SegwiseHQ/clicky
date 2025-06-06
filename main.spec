@@ -35,10 +35,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['assets/icons/app.icns'],
 )
 app = BUNDLE(
     exe,
     name='main.app',
-    icon=None,
+    icon='./assets/icons/app.icns',
     bundle_identifier=None,
 )
