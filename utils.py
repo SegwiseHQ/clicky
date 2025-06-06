@@ -7,7 +7,7 @@ from dearpygui.dearpygui import *
 
 class FontManager:
     """Manages font loading and configuration."""
-    
+
     @staticmethod
     def setup_monospace_font():
         """Setup Fira Code monospace font for better code display."""
@@ -25,14 +25,14 @@ class FontManager:
                 "/opt/homebrew/share/fonts/FiraCode-Regular.ttf",
                 "/usr/local/share/fonts/FiraCode-Regular.ttf",
             ]
-            
+
             # Try to load Fira Code from various paths
             for font_path in fira_code_paths:
                 try:
                     # Expand user path if needed
                     if font_path.startswith("~/"):
                         font_path = os.path.expanduser(font_path)
-                    
+
                     if os.path.exists(font_path):
                         monospace_font = add_font(font_path, 14)
                         bind_font(monospace_font)
@@ -40,14 +40,14 @@ class FontManager:
                 except Exception as e:
                     print(f"Failed to load font from {font_path}: {e}")
                     continue
-            
+
             # Fallback fonts if Fira Code is not found
             print("Fira Code not found, trying fallback fonts...")
             fallback_fonts = [
                 ("/System/Library/Fonts/Monaco.ttf", "Monaco"),
                 ("/System/Library/Fonts/Menlo.ttc", "Menlo"),
             ]
-            
+
             for font_path, font_name in fallback_fonts:
                 try:
                     print(f"Loading fallback font {font_name} from: {font_path}")
@@ -57,7 +57,7 @@ class FontManager:
                 except Exception as e:
                     print(f"Failed to load {font_name} font: {e}")
                     continue
-            
+
             # Use default font if all custom fonts fail
             print("Using default system font")
             return False
@@ -114,29 +114,31 @@ class UIHelpers:
             return False
 
 
-def validate_connection_params(host: str, port: str, username: str, database: str) -> tuple[bool, str]:
+def validate_connection_params(
+    host: str, port: str, username: str, database: str
+) -> tuple[bool, str]:
     """
     Validate connection parameters.
-    
+
     Args:
         host: Database host
         port: Database port
-        username: Database username  
+        username: Database username
         database: Database name
-        
+
     Returns:
         tuple: (is_valid: bool, error_message: str)
     """
     if not all([host, port, username, database]):
         return False, "All fields except password must be filled"
-    
+
     try:
         port_int = int(port)
         if port_int <= 0 or port_int > 65535:
             return False, "Port must be between 1 and 65535"
     except ValueError:
         return False, f"Port must be a number, got: {port}"
-    
+
     return True, ""
 
 
@@ -158,14 +160,14 @@ class TableHelpers:
     ):
         """
         Add a table column with standardized resizing behavior.
-        
+
         Args:
             label: Column header text
             parent: Parent table tag
             initial_width: Initial column width in pixels
             allow_stretch: Whether column should stretch to fill space
             allow_resize: Whether user can manually resize the column
-        
+
         Returns:
             Column tag
         """
@@ -179,17 +181,18 @@ class TableHelpers:
         )
 
     @staticmethod
-    def create_data_table(tag: str, parent: str, enable_resize: bool = True, 
-                         enable_sorting: bool = False):
+    def create_data_table(
+        tag: str, parent: str, enable_resize: bool = True, enable_sorting: bool = False
+    ):
         """
         Create a standardized data table with consistent settings.
-        
+
         Args:
             tag: Table tag
             parent: Parent container tag
             enable_resize: Whether columns should be resizable
             enable_sorting: Whether columns should be sortable
-        
+
         Returns:
             Table tag
         """
@@ -197,7 +200,7 @@ class TableHelpers:
             tag=tag,
             parent=parent,
             borders_innerH=True,
-            borders_innerV=True, 
+            borders_innerV=True,
             borders_outerH=True,
             borders_outerV=True,
             header_row=True,
@@ -206,5 +209,5 @@ class TableHelpers:
             freeze_rows=1,
             height=-1,
             resizable=enable_resize,
-            sortable=enable_sorting
+            sortable=enable_sorting,
         )

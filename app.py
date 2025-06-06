@@ -43,7 +43,11 @@ class ClickHouseClientApp:
         """Initialize application components."""
         # Initialize DearPyGUI first
         create_context()
-        create_viewport(title=f"{icon_manager.get('database')} ClickHouse Client", width=MAIN_WINDOW_WIDTH, height=MAIN_WINDOW_HEIGHT)
+        create_viewport(
+            title=f"{icon_manager.get('database')} ClickHouse Client",
+            width=MAIN_WINDOW_WIDTH,
+            height=MAIN_WINDOW_HEIGHT,
+        )
 
         # Initialize theme manager and apply global theme
         self.theme_manager = ThemeManager()
@@ -135,26 +139,36 @@ class ClickHouseClientApp:
             )
 
             # Validate parameters
-            is_valid, error_msg = validate_connection_params(host, port, username, database)
+            is_valid, error_msg = validate_connection_params(
+                host, port, username, database
+            )
             if not is_valid:
                 raise ValueError(error_msg)
 
             print("[DEBUG] Connection parameters validated successfully")
 
             # Attempt connection
-            success, message = self.db_manager.connect(host, int(port), username, password, database)
+            success, message = self.db_manager.connect(
+                host, int(port), username, password, database
+            )
             print(
                 f"[DEBUG] Connection attempt result: success={success}, message={message}"
             )
 
             if success:
                 StatusManager.show_status(message)
-                UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
+                UIHelpers.safe_configure_item(
+                    "connection_indicator", color=COLOR_SUCCESS
+                )
                 # Apply connected theme to connection indicator
-                connected_theme = self.theme_manager.create_connection_indicator_theme(True)
+                connected_theme = self.theme_manager.create_connection_indicator_theme(
+                    True
+                )
                 UIHelpers.safe_bind_item_theme("connection_indicator", connected_theme)
 
-                self.save_credentials_callback(None, None)  # Auto-save on successful connection
+                self.save_credentials_callback(
+                    None, None
+                )  # Auto-save on successful connection
 
                 # Automatically list tables after successful connection
                 # Use table browser UI's filtering to display connection and tables
@@ -169,12 +183,14 @@ class ClickHouseClientApp:
 
         except Exception as e:
             error_msg = f"Connection failed:\n{str(e)}"
-            if hasattr(e, '__traceback__'):
+            if hasattr(e, "__traceback__"):
                 error_msg += f"\nDetails:\n{traceback.format_exc()}"
             StatusManager.show_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
-            disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
+            disconnected_theme = self.theme_manager.create_connection_indicator_theme(
+                False
+            )
             UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
         finally:
             # Re-enable connect button
@@ -194,7 +210,9 @@ class ClickHouseClientApp:
 
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
-            disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
+            disconnected_theme = self.theme_manager.create_connection_indicator_theme(
+                False
+            )
             UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
 
             StatusManager.show_status(message)
@@ -261,7 +279,9 @@ class ClickHouseClientApp:
     def load_credentials_callback(self, sender, data):
         """Load saved connection credentials (legacy - loads first available)."""
         try:
-            success, credentials, message = self.credentials_manager.load_credentials_legacy()
+            success, credentials, message = (
+                self.credentials_manager.load_credentials_legacy()
+            )
 
             if success and credentials:
                 self._set_form_values(credentials)
@@ -269,7 +289,9 @@ class ClickHouseClientApp:
             StatusManager.show_status(message, error=not success)
 
         except Exception as e:
-            StatusManager.show_status(f"Error loading credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error loading credentials: {str(e)}", error=True
+            )
 
     def load_selected_credentials_callback(self, sender, data):
         """Load credentials selected from dropdown."""
@@ -278,7 +300,9 @@ class ClickHouseClientApp:
             if not selected_name:
                 return
 
-            success, credentials, message = self.credentials_manager.load_credentials(selected_name)
+            success, credentials, message = self.credentials_manager.load_credentials(
+                selected_name
+            )
 
             if success and credentials:
                 self._set_form_values(credentials)
@@ -287,7 +311,9 @@ class ClickHouseClientApp:
                 StatusManager.show_status(message, error=True)
 
         except Exception as e:
-            StatusManager.show_status(f"Error loading credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error loading credentials: {str(e)}", error=True
+            )
 
     def refresh_credentials_callback(self, sender, data):
         """Refresh the credentials dropdown list."""
@@ -296,22 +322,30 @@ class ClickHouseClientApp:
             UIHelpers.safe_configure_item("credentials_combo", items=names)
 
             if names:
-                StatusManager.show_status(f"Found {len(names)} saved credential sets", error=False)
+                StatusManager.show_status(
+                    f"Found {len(names)} saved credential sets", error=False
+                )
             else:
                 StatusManager.show_status("No saved credentials found", error=False)
 
         except Exception as e:
-            StatusManager.show_status(f"Error refreshing credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error refreshing credentials: {str(e)}", error=True
+            )
 
     def delete_credentials_callback(self, sender, data):
         """Delete selected credentials."""
         try:
             selected_name = UIHelpers.safe_get_value("credentials_combo", "")
             if not selected_name:
-                StatusManager.show_status("Please select credentials to delete", error=True)
+                StatusManager.show_status(
+                    "Please select credentials to delete", error=True
+                )
                 return
 
-            success, message = self.credentials_manager.delete_credentials(selected_name)
+            success, message = self.credentials_manager.delete_credentials(
+                selected_name
+            )
             StatusManager.show_status(message, error=not success)
 
             if success:
@@ -322,7 +356,9 @@ class ClickHouseClientApp:
                     self._clear_form_values()
 
         except Exception as e:
-            StatusManager.show_status(f"Error deleting credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error deleting credentials: {str(e)}", error=True
+            )
 
     def filter_tables_callback(self, sender, app_data):
         """Delegate table filtering to TableBrowserUI component."""
@@ -336,9 +372,15 @@ class ClickHouseClientApp:
         """Set form values from credentials dictionary."""
         UIHelpers.safe_configure_item("host_input", default_value=credentials["host"])
         UIHelpers.safe_configure_item("port_input", default_value=credentials["port"])
-        UIHelpers.safe_configure_item("username_input", default_value=credentials["user"])
-        UIHelpers.safe_configure_item("password_input", default_value=credentials["password"])
-        UIHelpers.safe_configure_item("database_input", default_value=credentials["database"])
+        UIHelpers.safe_configure_item(
+            "username_input", default_value=credentials["user"]
+        )
+        UIHelpers.safe_configure_item(
+            "password_input", default_value=credentials["password"]
+        )
+        UIHelpers.safe_configure_item(
+            "database_input", default_value=credentials["database"]
+        )
 
     def _clear_form_values(self):
         """Clear all form values."""
@@ -357,7 +399,9 @@ class ClickHouseClientApp:
             self.refresh_credentials_callback(None, None)
 
             # Try to load the first available credentials
-            success, credentials, message = self.credentials_manager.load_credentials_legacy()
+            success, credentials, message = (
+                self.credentials_manager.load_credentials_legacy()
+            )
             print(
                 f"[DEBUG] Load credentials result: success={success}, message={message}"
             )

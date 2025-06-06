@@ -22,11 +22,18 @@ class CredentialsManager:
                 # If we can't create the directory, fall back to current directory
                 self.credentials_file = os.path.basename(self.credentials_file)
 
-    def save_credentials(self, name: str, host: str, port: str, username: str, 
-                        password: str, database: str) -> Tuple[bool, str]:
+    def save_credentials(
+        self,
+        name: str,
+        host: str,
+        port: str,
+        username: str,
+        password: str,
+        database: str,
+    ) -> Tuple[bool, str]:
         """
         Save named credentials to file.
-        
+
         Args:
             name: Credential set name
             host: Database host
@@ -34,7 +41,7 @@ class CredentialsManager:
             username: Database username
             password: Database password (will be encrypted)
             database: Database name
-            
+
         Returns:
             tuple: (success: bool, message: str)
         """
@@ -58,23 +65,26 @@ class CredentialsManager:
             if credentials_dir and not os.path.exists(credentials_dir):
                 os.makedirs(credentials_dir, exist_ok=True)
 
-            with open(self.credentials_file, 'w') as f:
+            with open(self.credentials_file, "w") as f:
                 json.dump(all_credentials, f, indent=2)
 
             return True, f"Credentials '{name}' saved successfully"
 
         except PermissionError:
-            return False, f"Permission denied: Cannot write to {self.credentials_file}. Please check file permissions."
+            return (
+                False,
+                f"Permission denied: Cannot write to {self.credentials_file}. Please check file permissions.",
+            )
         except Exception as e:
             return False, f"Failed to save credentials: {str(e)}"
 
     def load_credentials(self, name: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """
         Load specific named credentials from file.
-        
+
         Args:
             name: Name of the credential set to load
-            
+
         Returns:
             tuple: (success: bool, credentials: dict or None, message: str)
         """
@@ -103,7 +113,7 @@ class CredentialsManager:
     def get_credential_names(self) -> List[str]:
         """
         Get list of all saved credential names.
-        
+
         Returns:
             List of credential names
         """
@@ -116,10 +126,10 @@ class CredentialsManager:
     def delete_credentials(self, name: str) -> Tuple[bool, str]:
         """
         Delete named credentials.
-        
+
         Args:
             name: Name of the credential set to delete
-            
+
         Returns:
             tuple: (success: bool, message: str)
         """
@@ -136,20 +146,23 @@ class CredentialsManager:
             if credentials_dir and not os.path.exists(credentials_dir):
                 os.makedirs(credentials_dir, exist_ok=True)
 
-            with open(self.credentials_file, 'w') as f:
+            with open(self.credentials_file, "w") as f:
                 json.dump(all_credentials, f, indent=2)
 
             return True, f"Credentials '{name}' deleted successfully"
 
         except PermissionError:
-            return False, f"Permission denied: Cannot write to {self.credentials_file}. Please check file permissions."
+            return (
+                False,
+                f"Permission denied: Cannot write to {self.credentials_file}. Please check file permissions.",
+            )
         except Exception as e:
             return False, f"Failed to delete credentials: {str(e)}"
 
     def _load_all_credentials(self) -> Dict[str, Dict[str, str]]:
         """
         Load all credentials from file.
-        
+
         Returns:
             Dictionary of all credential sets
         """
@@ -157,7 +170,7 @@ class CredentialsManager:
             return {}
 
         try:
-            with open(self.credentials_file, 'r') as f:
+            with open(self.credentials_file, "r") as f:
                 data = json.load(f)
 
             # Handle migration from old single-credential format
@@ -197,7 +210,7 @@ class CredentialsManager:
                 host = creds.get("host", "")
                 password = creds.get("password", "")
                 has_valid_password = len(password.strip()) > 0
-                
+
                 # Prioritize cloud and remote connections over localhost, but only if they have valid passwords
                 if "clickhouse.cloud" in host or (
                     "localhost" not in host and "127.0.0.1" not in host and host != ""
@@ -206,22 +219,31 @@ class CredentialsManager:
                         best_name = name
                         break  # Found ideal credential - cloud/remote with valid password
                     elif best_name is None:
-                        fallback_name = name  # Keep as fallback if no better option found
-                elif best_name is None and fallback_name is None:  # Use first valid credential as ultimate fallback
+                        fallback_name = (
+                            name  # Keep as fallback if no better option found
+                        )
+                elif (
+                    best_name is None and fallback_name is None
+                ):  # Use first valid credential as ultimate fallback
                     if has_valid_password:
                         fallback_name = name
 
         # Use best found credential, or fallback if no ideal one exists
         chosen_name = best_name or fallback_name
-        
+
         if chosen_name is None:
-            chosen_name = names[0]  # Ultimate fallback - use first credential even if password is empty
+            chosen_name = names[
+                0
+            ]  # Ultimate fallback - use first credential even if password is empty
 
         return self.load_credentials(chosen_name)
 
-    def save_credentials_legacy(self, host: str, port: str, username: str, 
-                               password: str, database: str) -> Tuple[bool, str]:
+    def save_credentials_legacy(
+        self, host: str, port: str, username: str, password: str, database: str
+    ) -> Tuple[bool, str]:
         """
         Save credentials with default name (for backward compatibility).
         """
-        return self.save_credentials("default", host, port, username, password, database)
+        return self.save_credentials(
+            "default", host, port, username, password, database
+        )

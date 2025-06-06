@@ -56,7 +56,9 @@ class TableBrowser:
             time_diff = current_time - self.last_click_time[table_name]
             if time_diff < DOUBLE_CLICK_THRESHOLD:  # Double-click detected
                 if self.status_callback:
-                    self.status_callback(f"Double-click detected on table: {table_name}", False)
+                    self.status_callback(
+                        f"Double-click detected on table: {table_name}", False
+                    )
                 if self.double_click_callback:
                     self.double_click_callback(table_name)
                 return
@@ -93,17 +95,21 @@ class TableBrowser:
         try:
             if self.status_callback:
                 self.status_callback(f"Loading columns for table: {table_name}")
-            
+
             columns = self.db_manager.get_table_columns(table_name)
             self.table_columns[table_name] = columns
-            
+
             if self.status_callback:
                 self.status_callback(f"Loaded {len(columns)} columns for {table_name}")
-                
+
         except Exception as e:
             if self.status_callback:
-                self.status_callback(f"Failed to load columns for {table_name}: {str(e)}", True)
-            self.table_columns[table_name] = []  # Cache empty result to avoid repeated failures
+                self.status_callback(
+                    f"Failed to load columns for {table_name}: {str(e)}", True
+                )
+            self.table_columns[table_name] = (
+                []
+            )  # Cache empty result to avoid repeated failures
 
     def _rebuild_tables_list_preserve_scroll(self):
         """Rebuild the tables list while preserving scroll position."""
@@ -131,10 +137,10 @@ class TableBrowser:
         try:
             # Get all tables
             tables = self.db_manager.get_tables()
-            
+
             # Clear and rebuild tables list
             delete_item("tables_list", children_only=True)
-            
+
             if not tables:
                 add_text("No tables found", parent="tables_list", color=COLOR_INFO)
                 return
@@ -156,8 +162,12 @@ class TableBrowser:
         """Add a single table to the tables list with expand/collapse functionality."""
         # Determine expand/collapse icon
         is_expanded = table_name in self.expanded_tables
-        icon = icon_manager.get('arrow_down') if is_expanded else icon_manager.get('arrow_right')
-        
+        icon = (
+            icon_manager.get("arrow_down")
+            if is_expanded
+            else icon_manager.get("arrow_right")
+        )
+
         # Add table button
         table_button_tag = f"table_{table_name}"
         add_button(
@@ -167,11 +177,13 @@ class TableBrowser:
             tag=table_button_tag,
             height=TABLE_BUTTON_HEIGHT,
         )
-        
+
         # Apply theme
         if self.theme_manager:
-            bind_item_theme(table_button_tag, self.theme_manager.get_theme("table_button"))
-        
+            bind_item_theme(
+                table_button_tag, self.theme_manager.get_theme("table_button")
+            )
+
         # Add columns if expanded
         if is_expanded and table_name in self.table_columns:
             for column_name, column_type in self.table_columns[table_name]:
@@ -183,7 +195,9 @@ class TableBrowser:
                     tag=column_tag,
                 )
                 if self.theme_manager:
-                    bind_item_theme(column_tag, self.theme_manager.get_theme("column_text"))
+                    bind_item_theme(
+                        column_tag, self.theme_manager.get_theme("column_text")
+                    )
 
     def clear_tables(self):
         """Clear the tables list and show disconnected state."""

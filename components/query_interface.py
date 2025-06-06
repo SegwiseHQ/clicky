@@ -26,13 +26,17 @@ class QueryInterface:
         """Setup theme for results tables with increased row height."""
         if self.theme_manager:
             # Use theme manager's table theme
-            self.table_theme = self.theme_manager.get_theme('table_enhanced')
+            self.table_theme = self.theme_manager.get_theme("table_enhanced")
         else:
             # Fallback theme creation
             with theme() as self.table_theme:
                 with theme_component(mvTable):
-                    add_theme_style(mvStyleVar_CellPadding, 8, 8)  # Increase cell padding
-                    add_theme_style(mvStyleVar_ItemSpacing, 0, 4)  # Add vertical spacing between items
+                    add_theme_style(
+                        mvStyleVar_CellPadding, 8, 8
+                    )  # Increase cell padding
+                    add_theme_style(
+                        mvStyleVar_ItemSpacing, 0, 4
+                    )  # Add vertical spacing between items
 
     def set_status_callback(self, callback: Callable[[str, bool], None]):
         """Set callback for status messages."""
@@ -56,7 +60,9 @@ class QueryInterface:
             result = self.db_manager.execute_query(query)
             if not result.result_rows:
                 if self.status_callback:
-                    self.status_callback("Query executed successfully (no results)", False)
+                    self.status_callback(
+                        "Query executed successfully (no results)", False
+                    )
                 return
 
             # Get column names and rows
@@ -72,19 +78,25 @@ class QueryInterface:
                     for col_idx, cell_value in enumerate(row):
                         # Format cell value for display and get original for copying
                         formatted_cell = self._format_cell_value(cell_value)
-                        original_cell = str(cell_value) if cell_value is not None else "NULL"
+                        original_cell = (
+                            str(cell_value) if cell_value is not None else "NULL"
+                        )
 
                         # Use selectable instead of text to enable click-to-copy
-                        cell_tag = f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
+                        cell_tag = (
+                            f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
+                        )
                         add_selectable(
                             label=formatted_cell,
                             tag=cell_tag,
                             callback=self._copy_cell_to_clipboard,
-                            user_data=original_cell  # Original cell content for copying
+                            user_data=original_cell,  # Original cell content for copying
                         )
 
             if self.status_callback:
-                self.status_callback(f"Query executed successfully. Rows returned: {len(rows)}", False)
+                self.status_callback(
+                    f"Query executed successfully. Rows returned: {len(rows)}", False
+                )
 
         except Exception as e:
             if self.status_callback:
@@ -99,10 +111,20 @@ class QueryInterface:
         # Create new table with dynamic columns and borders
         self.table_counter += 1
         self.current_table = f"query_result_{self.table_counter}"
-        add_table(tag=self.current_table, parent="results_window",
-                 borders_innerH=True, borders_innerV=True, borders_outerH=True, borders_outerV=True,
-                 header_row=True, scrollX=True, scrollY=True, freeze_rows=1, height=-1,
-                 resizable=True)  # Enable column resizing
+        add_table(
+            tag=self.current_table,
+            parent="results_window",
+            borders_innerH=True,
+            borders_innerV=True,
+            borders_outerH=True,
+            borders_outerV=True,
+            header_row=True,
+            scrollX=True,
+            scrollY=True,
+            freeze_rows=1,
+            height=-1,
+            resizable=True,
+        )  # Enable column resizing
 
         # Apply theme for larger row height
         if self.table_theme:
@@ -170,13 +192,13 @@ class QueryInterface:
         elif isinstance(val, bytes):
             # Handle byte strings
             try:
-                cell_value = val.decode('utf-8', errors='replace')
+                cell_value = val.decode("utf-8", errors="replace")
             except:
                 cell_value = str(val)
         elif isinstance(val, str):
             # Ensure string is properly encoded
             try:
-                cell_value = val.encode('utf-8', errors='replace').decode('utf-8')
+                cell_value = val.encode("utf-8", errors="replace").decode("utf-8")
             except:
                 cell_value = str(val)
         else:
@@ -194,14 +216,16 @@ class QueryInterface:
             query_lower = query.lower().strip()
 
             # Look for "FROM table_name" pattern
-            from_match = re.search(r'\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)', query_lower)
+            from_match = re.search(r"\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)", query_lower)
             if from_match:
                 table_name = from_match.group(1)
 
                 # Get column information for this table
                 try:
                     table_columns = self.db_manager.get_table_columns(table_name)
-                    table_column_types = {col_name: col_type for col_name, col_type in table_columns}
+                    table_column_types = {
+                        col_name: col_type for col_name, col_type in table_columns
+                    }
 
                     # Match query result columns with table columns
                     for col in columns:
