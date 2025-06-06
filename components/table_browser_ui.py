@@ -17,13 +17,13 @@ class TableBrowserUI:
         self.db_manager = db_manager
         self.credentials_manager = credentials_manager
         self.theme_manager = theme_manager
-        
+
         # Track connection expansion state (initialized as collapsed)
         self.connections_expanded: Set[str] = set()
-        
+
         # Track currently selected table
         self.selected_table = None
-        
+
         # Single-click callback for explorer opening
         self.double_click_callback: Optional[Callable[[str], None]] = None
 
@@ -146,7 +146,8 @@ class TableBrowserUI:
                     )
                     if self.theme_manager:
                         bind_item_theme(
-                            connection_button, self.theme_manager.get_theme("table_button")
+                            connection_button,
+                            self.theme_manager.get_theme("table_button"),
                         )
             else:
                 add_text(
@@ -166,27 +167,27 @@ class TableBrowserUI:
         """Handle table selection and single-click explorer opening."""
         # Extract table name from sender tag
         table_name = sender.replace("table_button_", "")
-        
+
         # Update selected table for visual highlighting
         old_selected = self.selected_table
         self.selected_table = table_name
-        
+
         # Get current scroll position before refreshing display
         try:
             scroll_y = get_y_scroll("tables_panel")
         except:
             scroll_y = 0
-        
+
         # Refresh the display to update themes
         current_search = UIHelpers.safe_get_value("table_search", "")
         self.filter_tables_callback(None, current_search)
-        
+
         # Restore scroll position after refresh
         try:
             set_y_scroll("tables_panel", scroll_y)
         except:
             pass
-        
+
         # Open explorer on single-click
         if self.double_click_callback:
             self.double_click_callback(table_name)
@@ -356,7 +357,7 @@ class TableBrowserUI:
 
             # For actual connection, we need to trigger the connection callback
             # This will be handled by the main app
-            if hasattr(self, 'connection_callback'):
+            if hasattr(self, "connection_callback"):
                 # Store loaded credentials for connection
                 self.stored_credentials = credentials
                 self.connection_callback(None, None)

@@ -45,7 +45,7 @@ class ThemeManager:
 
     def _create_global_theme(self):
         """Create the main application theme."""
-        with theme() as self.themes['global']:
+        with theme() as self.themes["global"]:
             with theme_component(mvAll):
                 # Window background
                 add_theme_color(mvThemeCol_WindowBg, COLOR_BACKGROUND)
@@ -110,7 +110,7 @@ class ThemeManager:
     def _create_button_themes(self):
         """Create button themes for different button types."""
         # Primary button theme
-        with theme() as self.themes['button_primary']:
+        with theme() as self.themes["button_primary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_PRIMARY)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
@@ -120,7 +120,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
         # Success button theme
-        with theme() as self.themes['button_success']:
+        with theme() as self.themes["button_success"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SUCCESS)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_SUCCESS)
@@ -130,7 +130,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
         # Danger button theme
-        with theme() as self.themes['button_danger']:
+        with theme() as self.themes["button_danger"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_DANGER)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_ERROR)
@@ -140,7 +140,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
         # Secondary button theme
-        with theme() as self.themes['button_secondary']:
+        with theme() as self.themes["button_secondary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SECONDARY)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_BORDER)
@@ -152,7 +152,7 @@ class ThemeManager:
     def _create_table_themes(self):
         """Create table-specific themes."""
         # Enhanced table theme
-        with theme() as self.themes['table_enhanced']:
+        with theme() as self.themes["table_enhanced"]:
             with theme_component(mvTable):
                 add_theme_color(mvThemeCol_Header, COLOR_TABLE_HEADER)
                 add_theme_color(mvThemeCol_HeaderHovered, COLOR_ACCENT)
@@ -166,7 +166,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_ItemSpacing, 0, 2)
 
         # Left-aligned table button theme
-        with theme() as self.themes['table_button']:
+        with theme() as self.themes["table_button"]:
             with theme_component(mvButton):
                 add_theme_style(mvStyleVar_ButtonTextAlign, 0.0, 0.5)
                 add_theme_color(mvThemeCol_Button, COLOR_SURFACE)
@@ -190,7 +190,7 @@ class ThemeManager:
     def _create_window_themes(self):
         """Create window-specific themes."""
         # Status window theme
-        with theme() as self.themes['status_window']:
+        with theme() as self.themes["status_window"]:
             with theme_component(mvChildWindow):
                 add_theme_color(mvThemeCol_ChildBg, COLOR_STATUS_BG)
                 add_theme_color(mvThemeCol_Border, COLOR_BORDER)
@@ -198,7 +198,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_WindowPadding, 10, 10)
 
         # Tables panel theme
-        with theme() as self.themes['tables_panel']:
+        with theme() as self.themes["tables_panel"]:
             with theme_component(mvChildWindow):
                 add_theme_color(mvThemeCol_ChildBg, COLOR_SURFACE)
                 add_theme_color(mvThemeCol_Border, COLOR_BORDER)
@@ -208,7 +208,7 @@ class ThemeManager:
     def _create_input_themes(self):
         """Create input field themes."""
         # Enhanced input theme
-        with theme() as self.themes['input_enhanced']:
+        with theme() as self.themes["input_enhanced"]:
             with theme_component(mvInputText):
                 add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE)
                 add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
@@ -218,7 +218,7 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
         # Combo box theme
-        with theme() as self.themes['combo_enhanced']:
+        with theme() as self.themes["combo_enhanced"]:
             with theme_component(mvCombo):
                 add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE)
                 add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
@@ -232,38 +232,38 @@ class ThemeManager:
     def _create_text_themes(self):
         """Create text-specific themes."""
         # Header text theme
-        with theme() as self.themes['header_text']:
+        with theme() as self.themes["header_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_EXPLORER_TITLE)
 
         # Success text theme
-        with theme() as self.themes['success_text']:
+        with theme() as self.themes["success_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_SUCCESS)
 
         # Error text theme
-        with theme() as self.themes['error_text']:
+        with theme() as self.themes["error_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_ERROR)
 
         # Warning text theme
-        with theme() as self.themes['warning_text']:
+        with theme() as self.themes["warning_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_WARNING)
 
         # Info text theme
-        with theme() as self.themes['info_text']:
+        with theme() as self.themes["info_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_INFO)
 
         # Column text theme
-        with theme() as self.themes['column_text']:
+        with theme() as self.themes["column_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_SUCCESS)
 
     def apply_global_theme(self):
         """Apply the global theme to the application."""
-        bind_theme(self.themes['global'])
+        bind_theme(self.themes["global"])
 
     def get_theme(self, theme_name: str):
         """Get a specific theme by name."""
@@ -271,7 +271,9 @@ class ThemeManager:
 
     def create_connection_indicator_theme(self, connected: bool):
         """Create a dynamic theme for connection indicator."""
-        theme_name = f'connection_indicator_{"connected" if connected else "disconnected"}'
+        theme_name = (
+            f'connection_indicator_{"connected" if connected else "disconnected"}'
+        )
 
         if theme_name not in self.themes:
             with theme() as self.themes[theme_name]:

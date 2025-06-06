@@ -22,7 +22,12 @@ from utils import UIHelpers, validate_connection_params
 class ConnectionManager:
     """Manages database connections and related operations."""
 
-    def __init__(self, db_manager: DatabaseManager, credentials_manager: CredentialsManager, theme_manager=None):
+    def __init__(
+        self,
+        db_manager: DatabaseManager,
+        credentials_manager: CredentialsManager,
+        theme_manager=None,
+    ):
         self.db_manager = db_manager
         self.credentials_manager = credentials_manager
         self.theme_manager = theme_manager
@@ -56,25 +61,35 @@ class ConnectionManager:
             )
 
             # Validate parameters
-            is_valid, error_msg = validate_connection_params(host, port, username, database)
+            is_valid, error_msg = validate_connection_params(
+                host, port, username, database
+            )
             if not is_valid:
                 raise ValueError(error_msg)
 
             print("[DEBUG] Connection parameters validated successfully")
 
             # Attempt connection
-            success, message = self.db_manager.connect(host, int(port), username, password, database)
+            success, message = self.db_manager.connect(
+                host, int(port), username, password, database
+            )
             print(
                 f"[DEBUG] Connection attempt result: success={success}, message={message}"
             )
 
             if success:
                 StatusManager.show_status(message)
-                UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
+                UIHelpers.safe_configure_item(
+                    "connection_indicator", color=COLOR_SUCCESS
+                )
                 # Apply connected theme to connection indicator
                 if self.theme_manager:
-                    connected_theme = self.theme_manager.create_connection_indicator_theme(True)
-                    UIHelpers.safe_bind_item_theme("connection_indicator", connected_theme)
+                    connected_theme = (
+                        self.theme_manager.create_connection_indicator_theme(True)
+                    )
+                    UIHelpers.safe_bind_item_theme(
+                        "connection_indicator", connected_theme
+                    )
 
                 # Update button states
                 UIHelpers.safe_configure_item("connect_button", enabled=True)
@@ -84,14 +99,18 @@ class ConnectionManager:
 
         except Exception as e:
             error_msg = f"Connection failed:\n{str(e)}"
-            if hasattr(e, '__traceback__'):
+            if hasattr(e, "__traceback__"):
                 error_msg += f"\nDetails:\n{traceback.format_exc()}"
             StatusManager.show_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             if self.theme_manager:
-                disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
-                UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
+                disconnected_theme = (
+                    self.theme_manager.create_connection_indicator_theme(False)
+                )
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator", disconnected_theme
+                )
         finally:
             # Re-enable connect button
             UIHelpers.safe_configure_item("connect_button", enabled=True)
@@ -104,8 +123,12 @@ class ConnectionManager:
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             if self.theme_manager:
-                disconnected_theme = self.theme_manager.create_connection_indicator_theme(False)
-                UIHelpers.safe_bind_item_theme("connection_indicator", disconnected_theme)
+                disconnected_theme = (
+                    self.theme_manager.create_connection_indicator_theme(False)
+                )
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator", disconnected_theme
+                )
 
             StatusManager.show_status(message)
 
@@ -138,7 +161,7 @@ class ConnectionManager:
 
         # Check each saved credential for a match
         matching_credentials = []
-        
+
         for name in credential_names:
             success, cred, _ = self.credentials_manager.load_credentials(name)
             if success:
@@ -160,7 +183,7 @@ class ConnectionManager:
                 ):
                     print(f"[DEBUG] Found matching credential: {name}")
                     matching_credentials.append(name)
-        
+
         # If we found multiple matches, return the first one
         if matching_credentials:
             return matching_credentials[0]
@@ -205,7 +228,9 @@ class ConnectionManager:
             print("[DEBUG] Starting auto_load_credentials")
 
             # Try to load the first available credentials
-            success, credentials, message = self.credentials_manager.load_credentials_legacy()
+            success, credentials, message = (
+                self.credentials_manager.load_credentials_legacy()
+            )
             print(
                 f"[DEBUG] Load credentials result: success={success}, message={message}"
             )
@@ -226,7 +251,9 @@ class ConnectionManager:
                     self.set_form_values(credentials)
                     print(f"[DEBUG] Form populated with auto-loaded credentials")
                 else:
-                    print(f"[DEBUG] Form elements don't exist yet, credentials stored for later use")
+                    print(
+                        f"[DEBUG] Form elements don't exist yet, credentials stored for later use"
+                    )
 
                 # No auto-connecting anymore
                 print(f"[DEBUG] Credentials loaded but not auto-connecting")
@@ -245,9 +272,15 @@ class ConnectionManager:
         """Set form values from credentials dictionary."""
         UIHelpers.safe_configure_item("host_input", default_value=credentials["host"])
         UIHelpers.safe_configure_item("port_input", default_value=credentials["port"])
-        UIHelpers.safe_configure_item("username_input", default_value=credentials["user"])
-        UIHelpers.safe_configure_item("password_input", default_value=credentials["password"])
-        UIHelpers.safe_configure_item("database_input", default_value=credentials["database"])
+        UIHelpers.safe_configure_item(
+            "username_input", default_value=credentials["user"]
+        )
+        UIHelpers.safe_configure_item(
+            "password_input", default_value=credentials["password"]
+        )
+        UIHelpers.safe_configure_item(
+            "database_input", default_value=credentials["database"]
+        )
 
     def clear_form_values(self):
         """Clear all form values."""

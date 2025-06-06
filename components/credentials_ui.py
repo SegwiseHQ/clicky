@@ -17,7 +17,12 @@ from utils import UIHelpers
 class CredentialsUI:
     """Manages credentials-related UI operations."""
 
-    def __init__(self, credentials_manager: CredentialsManager, connection_manager=None, theme_manager=None):
+    def __init__(
+        self,
+        credentials_manager: CredentialsManager,
+        connection_manager=None,
+        theme_manager=None,
+    ):
         self.credentials_manager = credentials_manager
         self.connection_manager = connection_manager
         self.theme_manager = theme_manager
@@ -72,7 +77,9 @@ class CredentialsUI:
     def load_credentials_callback(self, sender, data):
         """Load saved connection credentials (legacy - loads first available)."""
         try:
-            success, credentials, message = self.credentials_manager.load_credentials_legacy()
+            success, credentials, message = (
+                self.credentials_manager.load_credentials_legacy()
+            )
 
             if success and credentials and self.connection_manager:
                 self.connection_manager.set_form_values(credentials)
@@ -80,7 +87,9 @@ class CredentialsUI:
             StatusManager.show_status(message, error=not success)
 
         except Exception as e:
-            StatusManager.show_status(f"Error loading credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error loading credentials: {str(e)}", error=True
+            )
 
     def load_selected_credentials_callback(self, sender, data):
         """Load credentials selected from dropdown."""
@@ -89,7 +98,9 @@ class CredentialsUI:
             if not selected_name:
                 return
 
-            success, credentials, message = self.credentials_manager.load_credentials(selected_name)
+            success, credentials, message = self.credentials_manager.load_credentials(
+                selected_name
+            )
 
             if success and credentials and self.connection_manager:
                 self.connection_manager.set_form_values(credentials)
@@ -98,7 +109,9 @@ class CredentialsUI:
                 StatusManager.show_status(message, error=True)
 
         except Exception as e:
-            StatusManager.show_status(f"Error loading credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error loading credentials: {str(e)}", error=True
+            )
 
     def refresh_credentials_callback(self, sender, data):
         """Refresh the credentials dropdown list."""
@@ -107,22 +120,30 @@ class CredentialsUI:
             UIHelpers.safe_configure_item("credentials_combo", items=names)
 
             if names:
-                StatusManager.show_status(f"Found {len(names)} saved credential sets", error=False)
+                StatusManager.show_status(
+                    f"Found {len(names)} saved credential sets", error=False
+                )
             else:
                 StatusManager.show_status("No saved credentials found", error=False)
 
         except Exception as e:
-            StatusManager.show_status(f"Error refreshing credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error refreshing credentials: {str(e)}", error=True
+            )
 
     def delete_credentials_callback(self, sender, data):
         """Delete selected credentials."""
         try:
             selected_name = UIHelpers.safe_get_value("credentials_combo", "")
             if not selected_name:
-                StatusManager.show_status("Please select credentials to delete", error=True)
+                StatusManager.show_status(
+                    "Please select credentials to delete", error=True
+                )
                 return
 
-            success, message = self.credentials_manager.delete_credentials(selected_name)
+            success, message = self.credentials_manager.delete_credentials(
+                selected_name
+            )
             StatusManager.show_status(message, error=not success)
 
             if success:
@@ -133,7 +154,9 @@ class CredentialsUI:
                     self.connection_manager.clear_form_values()
 
         except Exception as e:
-            StatusManager.show_status(f"Error deleting credentials: {str(e)}", error=True)
+            StatusManager.show_status(
+                f"Error deleting credentials: {str(e)}", error=True
+            )
 
     def show_connection_settings_modal(self):
         """Show a modal dialog for connection settings."""
@@ -142,7 +165,7 @@ class CredentialsUI:
             delete_item("connection_settings_modal")
         except:
             pass  # Modal doesn't exist, which is fine
-            
+
         with window(
             label="Connection Settings",
             modal=True,
@@ -166,7 +189,8 @@ class CredentialsUI:
                 )
                 if self.theme_manager:
                     bind_item_theme(
-                        "credentials_combo", self.theme_manager.get_theme("combo_enhanced")
+                        "credentials_combo",
+                        self.theme_manager.get_theme("combo_enhanced"),
                     )
                 add_button(
                     label="Refresh",
@@ -176,7 +200,8 @@ class CredentialsUI:
                 )
                 if self.theme_manager:
                     bind_item_theme(
-                        "refresh_credentials_button", self.theme_manager.get_theme("button_secondary")
+                        "refresh_credentials_button",
+                        self.theme_manager.get_theme("button_secondary"),
                     )
 
             add_text("Save New Connection:")
@@ -274,7 +299,11 @@ class CredentialsUI:
             with group(horizontal=True):
                 add_button(
                     label="Connect",
-                    callback=self.connection_manager.connect_callback if self.connection_manager else None,
+                    callback=(
+                        self.connection_manager.connect_callback
+                        if self.connection_manager
+                        else None
+                    ),
                     tag="connect_button",
                     width=100,
                 )
@@ -284,14 +313,19 @@ class CredentialsUI:
                     )
                 add_button(
                     label="Disconnect",
-                    callback=self.connection_manager.disconnect_callback if self.connection_manager else None,
+                    callback=(
+                        self.connection_manager.disconnect_callback
+                        if self.connection_manager
+                        else None
+                    ),
                     tag="disconnect_button",
                     width=120,
                     enabled=False,
                 )
                 if self.theme_manager:
                     bind_item_theme(
-                        "disconnect_button", self.theme_manager.get_theme("button_danger")
+                        "disconnect_button",
+                        self.theme_manager.get_theme("button_danger"),
                     )
                 add_text("Disconnected", tag="connection_indicator", color=COLOR_ERROR)
 
@@ -307,4 +341,6 @@ class CredentialsUI:
 
             # If we have stored credentials, populate the form
             if self.connection_manager and self.connection_manager.stored_credentials:
-                self.connection_manager.set_form_values(self.connection_manager.stored_credentials)
+                self.connection_manager.set_form_values(
+                    self.connection_manager.stored_credentials
+                )
