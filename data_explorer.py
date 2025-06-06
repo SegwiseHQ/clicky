@@ -5,7 +5,13 @@ from typing import Dict, Optional, Set
 
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT, TABLE_ROW_HEIGHT, ROW_DETAILS_PANEL_WIDTH
+from config import (
+    DEFAULT_LIMIT,
+    MAX_CELL_LENGTH,
+    MAX_ROWS_LIMIT,
+    ROW_DETAILS_PANEL_WIDTH,
+    TABLE_ROW_HEIGHT,
+)
 from database import DatabaseManager
 from utils import FontManager, TableHelpers, UIHelpers
 

@@ -48,7 +48,7 @@ class UILayout:
                 with child_window(label=f"{icon_manager.get('table')} Database Tables", width=TABLES_PANEL_WIDTH, height=-1, tag="tables_panel", border=True):
                     if self.theme_manager:
                         bind_item_theme("tables_panel", self.theme_manager.get_theme('tables_panel'))
-                    
+
                     add_text("Database Tables", color=(255, 255, 0), tag="database_tables_header")
                     if self.theme_manager:
                         bind_item_theme("database_tables_header", self.theme_manager.get_theme('header_text'))
@@ -127,7 +127,6 @@ class UILayout:
 
             # Control buttons
             with group(horizontal=True):
-                add_button(label="Refresh Data", tag="explorer_refresh_button")
                 add_button(label="Clear Filters", tag="explorer_clear_filters_button")
                 add_text("Limit:")
                 add_input_text(tag="explorer_limit", default_value="100", width=80)
@@ -147,7 +146,7 @@ class UILayout:
                         height=-1
                     ):
                         add_text("Loading data...", color=(128, 128, 128))
-                    
+
                     # Right panel: Row details
                     with child_window(
                         label="Row Details", 
@@ -169,20 +168,16 @@ class UILayout:
         if data_explorer:
             # Connect close explorer callback
             configure_item("close_explorer_button", callback=data_explorer.close_explorer)
-            
+
             # Connect other explorer callbacks
             try:
-                # Connect refresh button
-                configure_item("explorer_refresh_button", 
-                               callback=lambda: data_explorer.refresh_data())
-                
                 # Connect clear filters button
                 configure_item("explorer_clear_filters_button", 
                                callback=data_explorer.clear_filters)
-                
+
                 # Connect apply limit button
                 configure_item("explorer_apply_limit_button", 
                                callback=lambda: data_explorer.refresh_data())
-                
+
             except Exception as e:
                 print(f"Error connecting data explorer callbacks: {e}")

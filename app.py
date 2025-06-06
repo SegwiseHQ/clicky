@@ -169,8 +169,6 @@ class ClickHouseClientApp:
 
             # Control buttons
             with group(horizontal=True):
-                add_button(label="Refresh Data", tag="explorer_refresh_button", 
-                           callback=lambda: self.data_explorer.refresh_data(StatusManager.show_status))
                 add_button(label="Clear Filters", tag="explorer_clear_filters_button", 
                            callback=self.data_explorer.clear_filters)
                 add_text("Limit:")
@@ -192,7 +190,7 @@ class ClickHouseClientApp:
                         height=-1
                     ):
                         add_text("Loading data...", color=(128, 128, 128))
-                    
+
                     # Right panel: Row details
                     with child_window(
                         label="Row Details", 
