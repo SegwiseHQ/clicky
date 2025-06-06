@@ -176,6 +176,15 @@ class ClickHouseClientApp:
                 add_button(label="Apply Limit", tag="explorer_apply_limit_button", 
                            callback=lambda: self.data_explorer.refresh_data(StatusManager.show_status))
 
+            # Toggle button row
+            with group(horizontal=True):
+                add_button(
+                    label="Toggle Row Details",
+                    tag="explorer_toggle_details_button",
+                    width=140,
+                    callback=self._toggle_row_details_panel,
+                )
+
             add_separator()
 
             # Data window with horizontal split - fills remaining vertical space
@@ -200,6 +209,26 @@ class ClickHouseClientApp:
                         height=-1
                     ):
                         add_text("Select a row to view details", color=(128, 128, 128), tag="row_details_placeholder")
+
+    def _toggle_row_details_panel(self):
+        """Toggle the visibility of the row details panel."""
+        try:
+            # Get current visibility state
+            is_visible = get_item_configuration("explorer_row_details")["show"]
+
+            # Toggle visibility
+            configure_item("explorer_row_details", show=not is_visible)
+
+            # Adjust main table width based on panel visibility
+            if is_visible:
+                # Panel is being hidden - expand main table to full width
+                configure_item("explorer_main_table", width=-1)
+            else:
+                # Panel is being shown - leave space for it
+                configure_item("explorer_main_table", width=-410)
+
+        except Exception as e:
+            print(f"Error toggling row details panel: {e}")
 
     def connect_callback(self, sender, data):
         """Handle database connection."""
