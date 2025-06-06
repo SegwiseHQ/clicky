@@ -48,7 +48,7 @@ class UILayout:
                 with child_window(label=f"{icon_manager.get('table')} Database Tables", width=TABLES_PANEL_WIDTH, height=-1, tag="tables_panel", border=True):
                     if self.theme_manager:
                         bind_item_theme("tables_panel", self.theme_manager.get_theme('tables_panel'))
-                    
+
                     add_text("Database Tables", color=(255, 255, 0), tag="database_tables_header")
                     if self.theme_manager:
                         bind_item_theme("database_tables_header", self.theme_manager.get_theme('header_text'))
@@ -125,19 +125,49 @@ class UILayout:
                 add_text("Add filters for columns:")
                 add_group(tag="explorer_filters")
 
-            # Control buttons
+                # Limit controls
+                with group(horizontal=True):
+                    add_text("Limit:")
+                    add_input_text(tag="explorer_limit", default_value="100", width=60)
+                    add_button(
+                        label="Apply", tag="explorer_apply_limit_button", width=60
+                    )
+
+                add_button(label="Clear Filters", tag="explorer_clear_filters_button")
+
+            # Toggle button row
             with group(horizontal=True):
-                add_button(label="Refresh Data")
-                add_button(label="Clear Filters")
-                add_text("Limit:")
-                add_input_text(tag="explorer_limit", default_value="100", width=80)
-                add_button(label="Apply Limit")
+                add_button(
+                    label="Toggle Row Details",
+                    tag="explorer_toggle_details_button",
+                    width=140,
+                )
 
             add_separator()
 
-            # Data window - fills remaining vertical space
+            # Data window with horizontal split - fills remaining vertical space
             with child_window(label="Data", tag="explorer_data_window", border=True, height=-1):
-                add_text("Loading data...", color=(128, 128, 128))
+                with group(horizontal=True, tag="explorer_data_layout"):
+                    # Left panel: Main data table
+                    with child_window(
+                        label="Table Data", 
+                        tag="explorer_main_table", 
+                        border=True, 
+                        width=-410,  # Leave space for right panel + some margin
+                        height=-1
+                    ):
+                        add_text("Loading data...", color=(128, 128, 128))
+
+                    # Right panel: Row details (initially visible)
+                    with child_window(
+                        label="Row Details",
+                        tag="explorer_row_details",
+                        border=True,
+                        width=400,
+                        height=-1,
+                        show=True,  # Initially visible
+                    ):
+                        add_text("Select a row to view details", color=(128, 128, 128), tag="row_details_placeholder")
 
     def connect_callbacks_to_query_interface(self, query_interface):
         """Connect the query interface callbacks after creation."""
@@ -150,16 +180,42 @@ class UILayout:
         if data_explorer:
             # Connect close explorer callback
             configure_item("close_explorer_button", callback=data_explorer.close_explorer)
-            
+
             # Connect other explorer callbacks
             try:
-                # Find and configure buttons in explorer section
-                refresh_button = None
-                clear_button = None
-                apply_button = None
-                
-                # Since we can't easily find specific buttons, we'll need to
-                # set these callbacks from the main app
-                pass
-            except:
-                pass
+                # Connect clear filters button
+                configure_item("explorer_clear_filters_button", 
+                               callback=data_explorer.clear_filters)
+
+                # Connect apply limit button
+                configure_item("explorer_apply_limit_button", 
+                               callback=lambda: data_explorer.refresh_data())
+
+                # Connect toggle details button
+                configure_item(
+                    "explorer_toggle_details_button",
+                    callback=self._toggle_row_details_panel,
+                )
+
+            except Exception as e:
+                print(f"Error connecting data explorer callbacks: {e}")
+
+    def _toggle_row_details_panel(self):
+        """Toggle the visibility of the row details panel."""
+        try:
+            # Get current visibility state
+            is_visible = get_item_configuration("explorer_row_details")["show"]
+
+            # Toggle visibility
+            configure_item("explorer_row_details", show=not is_visible)
+
+            # Adjust main table width based on panel visibility
+            if is_visible:
+                # Panel is being hidden - expand main table to full width
+                configure_item("explorer_main_table", width=-1)
+            else:
+                # Panel is being shown - leave space for it
+                configure_item("explorer_main_table", width=-410)
+
+        except Exception as e:
+            print(f"Error toggling row details panel: {e}")
