@@ -221,9 +221,12 @@ class ConnectionManager:
                 # Store the credentials for later use
                 self.stored_credentials = credentials
 
-                # Populate the form with the loaded credentials
-                self.set_form_values(credentials)
-                print(f"[DEBUG] Form populated with auto-loaded credentials")
+                # Only populate the form if the form elements exist (modal is open)
+                if does_item_exist("host_input"):
+                    self.set_form_values(credentials)
+                    print(f"[DEBUG] Form populated with auto-loaded credentials")
+                else:
+                    print(f"[DEBUG] Form elements don't exist yet, credentials stored for later use")
 
                 # No auto-connecting anymore
                 print(f"[DEBUG] Credentials loaded but not auto-connecting")
