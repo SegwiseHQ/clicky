@@ -124,7 +124,8 @@ class QueryInterface:
             freeze_rows=1,
             height=-1,
             resizable=True,
-        )  # Enable column resizing
+            policy=mvTable_SizingFixedFit,
+        )  # Enable column resizing with fixed fit policy
 
         # Apply theme for larger row height
         if self.table_theme:
