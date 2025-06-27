@@ -135,12 +135,25 @@ class UILayout:
                 bind_item_theme(
                     "query_input", self.theme_manager.get_theme("input_enhanced")
                 )
+
+            # Run Query button
             add_button(
                 label=f"{icon_manager.get('query')} Run Query", tag="run_query_button"
             )
             if self.theme_manager:
                 bind_item_theme(
                     "run_query_button", self.theme_manager.get_theme("button_primary")
+                )
+
+            # Save as JSON button - positioned below Run Query button
+            add_button(
+                label=f"{icon_manager.get('export')} Save as JSON",
+                tag="save_json_button",
+                show=False,  # Initially hidden
+            )
+            if self.theme_manager:
+                bind_item_theme(
+                    "save_json_button", self.theme_manager.get_theme("button_primary")
                 )
 
             add_separator()
@@ -240,6 +253,11 @@ class UILayout:
             # Connect run query callback
             configure_item(
                 "run_query_button", callback=query_interface.run_query_callback
+            )
+
+            # Connect save as JSON callback
+            configure_item(
+                "save_json_button", callback=query_interface.save_as_json_callback
             )
 
     def connect_callbacks_to_data_explorer(self, data_explorer):
