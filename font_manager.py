@@ -5,8 +5,26 @@ import urllib.request
 from pathlib import Path
 
 
+def get_bundled_font_awesome_path():
+    """Get the path to the bundled Font Awesome font."""
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent
+    fa_font_path = script_dir / "assets" / "fonts" / "fa-solid-900.ttf"
+
+    if fa_font_path.exists():
+        return str(fa_font_path)
+    return None
+
+
 def download_font_awesome():
     """Download Font Awesome font file if not already present."""
+    # First check if we already have the bundled font
+    bundled_path = get_bundled_font_awesome_path()
+    if bundled_path:
+        print(f"Using bundled Font Awesome font: {bundled_path}")
+        return bundled_path
+
+    # If not bundled, download to assets directory
     assets_dir = Path("assets")
     fonts_dir = assets_dir / "fonts"
     fonts_dir.mkdir(parents=True, exist_ok=True)
@@ -32,8 +50,14 @@ def download_font_awesome():
 
 
 def get_font_awesome_path():
-    """Get the path to Font Awesome font, downloading if necessary."""
-    return download_font_awesome()
+    """Get the path to Font Awesome font, preferring bundled version."""
+    # First try bundled font
+    bundled_path = get_bundled_font_awesome_path()
+    if bundled_path:
+        return bundled_path
+
+    # Fallback to download or system font
+    return download_font_awesome() or find_system_font_awesome()
 
 
 # Alternative: Use system Font Awesome if available

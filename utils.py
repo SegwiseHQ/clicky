@@ -9,51 +9,58 @@ class FontManager:
     """Manages font loading and configuration."""
 
     @staticmethod
+    def get_assets_path():
+        """Get the path to the assets directory."""
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up one level to the project root and then to assets
+        return os.path.join(script_dir, "assets")
+
+    @staticmethod
     def setup_monospace_font():
-        """Setup Fira Code monospace font for better code display."""
+        """Setup JetBrains Mono font from bundled assets."""
         with font_registry():
-            # Try different possible locations for Fira Code font
-            fira_code_paths = [
-                # User library fonts (where Homebrew installs fonts)
-                "~/Library/Fonts/FiraCode-Regular.ttf",
-                "~/Library/Fonts/FiraCode-Retina.ttf",
-                "~/Library/Fonts/FiraCode-Medium.ttf",
-                # System font paths
-                "/Library/Fonts/FiraCode-Regular.ttf",
-                "/System/Library/Fonts/Supplemental/FiraCode-Regular.ttf",
-                # Homebrew installation path
-                "/opt/homebrew/share/fonts/FiraCode-Regular.ttf",
-                "/usr/local/share/fonts/FiraCode-Regular.ttf",
+            # Get the bundled font path
+            assets_path = FontManager.get_assets_path()
+            bundled_font_path = os.path.join(
+                assets_path, "fonts", "JetBrainsMono-Regular.ttf"
+            )
+
+            # Try to load the bundled font first
+            if os.path.exists(bundled_font_path):
+                try:
+                    print(
+                        f"Loading bundled JetBrains Mono font from: {bundled_font_path}"
+                    )
+                    monospace_font = add_font(bundled_font_path, 16)
+                    bind_font(monospace_font)
+                    return True
+                except Exception as e:
+                    print(f"Failed to load bundled font: {e}")
+            else:
+                print(f"Bundled font not found at: {bundled_font_path}")
+
+            # Fallback to system fonts if bundled font fails
+            print("Bundled font not available, trying system fallback fonts...")
+            system_fallback_fonts = [
+                ("~/Library/Fonts/JetBrainsMono-Regular.ttf", "JetBrains Mono (User)"),
+                ("/System/Library/Fonts/Monaco.ttf", "Monaco"),
+                ("/System/Library/Fonts/Menlo.ttc", "Menlo"),
             ]
 
-            # Try to load Fira Code from various paths
-            for font_path in fira_code_paths:
+            for font_path, font_name in system_fallback_fonts:
                 try:
                     # Expand user path if needed
                     if font_path.startswith("~/"):
                         font_path = os.path.expanduser(font_path)
 
                     if os.path.exists(font_path):
+                        print(
+                            f"Loading system fallback font {font_name} from: {font_path}"
+                        )
                         monospace_font = add_font(font_path, 14)
                         bind_font(monospace_font)
                         return True
-                except Exception as e:
-                    print(f"Failed to load font from {font_path}: {e}")
-                    continue
-
-            # Fallback fonts if Fira Code is not found
-            print("Fira Code not found, trying fallback fonts...")
-            fallback_fonts = [
-                ("/System/Library/Fonts/Monaco.ttf", "Monaco"),
-                ("/System/Library/Fonts/Menlo.ttc", "Menlo"),
-            ]
-
-            for font_path, font_name in fallback_fonts:
-                try:
-                    print(f"Loading fallback font {font_name} from: {font_path}")
-                    monospace_font = add_font(font_path, 14)
-                    bind_font(monospace_font)
-                    return True
                 except Exception as e:
                     print(f"Failed to load {font_name} font: {e}")
                     continue
@@ -61,6 +68,24 @@ class FontManager:
             # Use default font if all custom fonts fail
             print("Using default system font")
             return False
+
+    @staticmethod
+    def setup_bold_font():
+        """Setup JetBrains Mono Bold font from bundled assets for headers."""
+        assets_path = FontManager.get_assets_path()
+        bundled_font_path = os.path.join(assets_path, "fonts", "JetBrainsMono-Bold.ttf")
+
+        if os.path.exists(bundled_font_path):
+            try:
+                print(
+                    f"Loading bundled JetBrains Mono Bold font from: {bundled_font_path}"
+                )
+                bold_font = add_font(bundled_font_path, 16)
+                return bold_font
+            except Exception as e:
+                print(f"Failed to load bundled bold font: {e}")
+
+        return None
 
 
 class UIHelpers:
