@@ -20,6 +20,8 @@ class QueryInterface:
         self.table_counter = 0
         self.status_callback: Optional[Callable[[str, bool], None]] = None
         self.table_theme = None
+        self.loading_indicator = None
+        self.loading_animation_running = False
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -55,10 +57,33 @@ class QueryInterface:
                 self.status_callback("Query is empty", True)
             return
 
+        # Add default LIMIT if not present
+        original_query = query
+        query = self._add_default_limit(query)
+
+        # Show a message if we added a default limit
+        if query != original_query:
+            if self.status_callback:
+                self.status_callback("Added default LIMIT 1000 to query", False)
+
+        # Show loading animation
+        self._show_loading()
+
         try:
             # Execute query
             result = self.db_manager.execute_query(query)
+
+            # Update loading message for result processing
+            self._update_loading_message("Processing results...")
+
+            # Always clear previous results first (loading already cleared them)
+            if self.current_table:
+                delete_item(self.current_table)
+                self.current_table = None
+
             if not result.result_rows:
+                # Hide loading animation for no results case
+                self._hide_loading()
                 if self.status_callback:
                     self.status_callback(
                         "Query executed successfully (no results)", False
@@ -69,11 +94,24 @@ class QueryInterface:
             column_names = result.column_names
             rows = result.result_rows
 
+            # Update loading message for table building
+            if len(rows) > 100:
+                self._update_loading_message(f"Building table with {len(rows)} rows...")
+            else:
+                self._update_loading_message("Building table...")
+
             # Setup table with new columns
             self._setup_results_table(column_names, query)
 
             # Add rows
             for row_idx, row in enumerate(rows):
+                # Update progress for very large result sets
+                if len(rows) > 1000 and row_idx > 0 and row_idx % 500 == 0:
+                    progress = (row_idx / len(rows)) * 100
+                    self._update_loading_message(
+                        f"Loading rows... {progress:.0f}% complete"
+                    )
+
                 with table_row(parent=self.current_table):
                     for col_idx, cell_value in enumerate(row):
                         # Format cell value for display and get original for copying
@@ -82,31 +120,60 @@ class QueryInterface:
                             str(cell_value) if cell_value is not None else "NULL"
                         )
 
-                        # Use selectable instead of text to enable click-to-copy
+                        # Use regular table cell instead of selectable to allow right-click menus
+                        # Store the original cell data as user_data for potential future copy functionality
                         cell_tag = (
                             f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
                         )
-                        add_selectable(
-                            label=formatted_cell,
-                            tag=cell_tag,
-                            callback=self._copy_cell_to_clipboard,
-                            user_data=original_cell,  # Original cell content for copying
-                        )
+
+                        # Create table cell with selectable text for copying
+                        with table_cell():
+                            # Use input_text in readonly mode - allows text selection/copying without interfering with right-click
+                            add_input_text(
+                                tag=f"cell_input_{cell_tag}",
+                                default_value=formatted_cell,
+                                readonly=True,  # Read-only allows selection but not editing
+                                width=-1,  # Take full available width
+                                height=0,  # Auto height based on content
+                                no_spaces=False,  # Allow spaces in the text
+                                tab_input=False,  # Don't capture tab navigation
+                                hint="",  # No hint text
+                                multiline=False,  # Single line input
+                                user_data=original_cell,  # Store original for reference
+                            )
+
+            # Hide loading animation after all results are displayed
+            self._hide_loading()
+
+            # Give a small delay to ensure loading is cleared before showing success
+            time.sleep(0.01)
 
             if self.status_callback:
                 self.status_callback(
-                    f"Query executed successfully. Rows returned: {len(rows)}", False
+                    f"Query executed successfully. Rows returned: {len(rows)}. Select text and Ctrl+C to copy.",
+                    False,
                 )
 
         except Exception as e:
+            # Hide loading animation on error
+            self._hide_loading()
             if self.status_callback:
                 self.status_callback(f"Query failed: {str(e)}", True)
+        finally:
+            # Final safety check - ensure loading is always cleared
+            if self.loading_indicator:
+                try:
+                    self._hide_loading()
+                except:
+                    # Force reset if hiding fails
+                    self.loading_indicator = None
+                    self.loading_animation_running = False
 
     def _setup_results_table(self, columns, query=None):
         """Setup the results table with the given columns."""
-        # Delete existing table if any
-        if self.current_table:
-            delete_item(self.current_table)
+        # Ensure loading is completely cleared before setting up table
+        if self.loading_indicator:
+            self._hide_loading()
 
         # Create new table with dynamic columns and borders
         self.table_counter += 1
@@ -122,7 +189,8 @@ class QueryInterface:
             scrollX=True,
             scrollY=True,
             freeze_rows=1,
-            height=-1,
+            height=-1,  # Take all available height
+            width=-1,  # Take all available width
             resizable=True,
             policy=mvTable_SizingFixedFit,
         )  # Enable column resizing with fixed fit policy
@@ -238,3 +306,204 @@ class QueryInterface:
             pass  # If any error in pattern matching, just return empty dict
 
         return column_types
+
+    def _show_loading(self):
+        """Show loading animation in the results window."""
+        try:
+            # Clear any existing results
+            if self.current_table and does_item_exist(self.current_table):
+                delete_item(self.current_table)
+                self.current_table = None
+
+            # Aggressively clear any existing loading indicator
+            self._hide_loading()  # Use the improved hide method
+
+            # Additional cleanup - check for any orphaned loading elements
+            try:
+                current_time = int(time.time())
+                for i in range(current_time - 5, current_time + 1):
+                    potential_tag = f"loading_indicator_{i}"
+                    if does_item_exist(potential_tag):
+                        delete_item(potential_tag)
+            except:
+                pass
+
+            # Create loading indicator with compact design
+            self.loading_indicator = f"loading_indicator_{int(time.time())}"
+            print(f"Creating new loading indicator: {self.loading_indicator}")
+
+            with group(tag=self.loading_indicator, parent="results_window"):
+                add_spacer(height=30)  # Reduced from 80px to 30px
+
+                # Center the loading content
+                with group(horizontal=True):
+                    add_spacer(width=20)  # Reduced from 50px to 20px
+                    with group():
+                        # Loading text with emoji - more compact
+                        add_text(
+                            "⏳ Executing query...",
+                            tag=f"{self.loading_indicator}_text",
+                            color=(100, 150, 255),
+                        )
+
+                        add_spacer(height=8)  # Reduced from 15px to 8px
+
+                        # Progress bar with animation - smaller height
+                        add_progress_bar(
+                            tag=f"{self.loading_indicator}_progress",
+                            default_value=-1.0,  # Indeterminate progress
+                            width=400,  # Reduced from 500px to 400px
+                            height=18,  # Reduced from 25px to 18px
+                            overlay="Please wait...",
+                        )
+
+                        add_spacer(height=5)  # Reduced from 10px to 5px
+
+                        # Additional helpful text - smaller and less prominent
+                        add_text(
+                            "Processing...",  # Shorter text
+                            tag=f"{self.loading_indicator}_help",
+                            color=(120, 120, 120),  # Lighter gray
+                        )
+
+            # Start loading animation
+            self.loading_animation_running = True
+
+            if self.status_callback:
+                self.status_callback("Executing query...", False)
+
+        except Exception as e:
+            print(f"Error showing loading indicator: {e}")
+            # If we can't show loading, at least clear the state
+            self.loading_indicator = None
+            self.loading_animation_running = False
+
+    def _update_loading_message(self, message: str):
+        """Update the loading message while keeping the animation running."""
+        try:
+            if (
+                self.loading_indicator
+                and self.loading_animation_running
+                and does_item_exist(f"{self.loading_indicator}_text")
+            ):
+                set_value(f"{self.loading_indicator}_text", f"⏳ {message}")
+        except Exception as e:
+            print(f"Error updating loading message: {e}")
+            # If we can't update the message, it might mean the loading indicator was cleared
+            # Reset the state to prevent further issues
+            if not does_item_exist(self.loading_indicator or ""):
+                self.loading_indicator = None
+                self.loading_animation_running = False
+
+    def _hide_loading(self):
+        """Hide loading animation."""
+        try:
+            self.loading_animation_running = False
+
+            if self.loading_indicator:
+                # More aggressive cleanup approach
+                loading_tag = self.loading_indicator
+
+                # Try to delete the main group first
+                try:
+                    if does_item_exist(loading_tag):
+                        delete_item(loading_tag)
+                        print(f"Successfully deleted loading indicator: {loading_tag}")
+                except Exception as delete_error:
+                    print(f"Error deleting main loading group: {delete_error}")
+
+                    # If main group deletion fails, try to delete individual components
+                    component_tags = [
+                        f"{loading_tag}_text",
+                        f"{loading_tag}_progress",
+                        f"{loading_tag}_help",
+                        loading_tag,  # Try the main tag again
+                    ]
+
+                    for tag in component_tags:
+                        try:
+                            if does_item_exist(tag):
+                                delete_item(tag)
+                                print(f"Deleted component: {tag}")
+                        except Exception as comp_error:
+                            print(f"Failed to delete component {tag}: {comp_error}")
+
+                # Force reset the loading indicator reference
+                self.loading_indicator = None
+
+            # Double-check and force cleanup any remaining loading elements
+            # This is a fallback in case the above doesn't work
+            try:
+                # Try to find and delete any remaining loading indicators
+                current_time = int(time.time())
+                for i in range(
+                    current_time - 10, current_time + 1
+                ):  # Check last 10 seconds
+                    potential_tag = f"loading_indicator_{i}"
+                    if does_item_exist(potential_tag):
+                        delete_item(potential_tag)
+                        print(f"Force deleted stale loading indicator: {potential_tag}")
+            except Exception as cleanup_error:
+                print(f"Error in force cleanup: {cleanup_error}")
+
+        except Exception as e:
+            print(f"Error hiding loading indicator: {e}")
+        finally:
+            # Always reset the state, even if deletion fails
+            self.loading_indicator = None
+            self.loading_animation_running = False
+            print("Loading state reset complete")
+
+    def _animate_loading(self):
+        """Animate the loading progress bar (handled automatically by DearPyGui)."""
+        # DearPyGui automatically animates indeterminate progress bars (value = -1.0)
+        # No manual animation needed
+        pass
+
+    def _add_default_limit(self, query: str) -> str:
+        """Add default LIMIT clause if not already present in the query."""
+        try:
+            # Clean the query for analysis
+            query_clean = query.strip()
+            query_lower = query_clean.lower()
+
+            # Check if it's a SELECT query (we only add LIMIT to SELECT queries)
+            if not query_lower.strip().startswith("select"):
+                return query  # Not a SELECT query, return as-is
+
+            # Check if query already has a LIMIT clause
+            # Look for LIMIT followed by number, optionally with OFFSET
+            limit_patterns = [
+                r"\blimit\s+\d+\b",  # LIMIT 100
+                r"\blimit\s+\d+\s+offset\s+\d+\b",  # LIMIT 100 OFFSET 50
+                r"\boffset\s+\d+\s+limit\s+\d+\b",  # OFFSET 50 LIMIT 100 (some SQL dialects)
+            ]
+
+            for pattern in limit_patterns:
+                if re.search(pattern, query_lower):
+                    return query  # Query already has LIMIT, return as-is
+
+            # Special case: Check for subqueries that might have LIMIT
+            # If the main query is complex, be more conservative
+            if query_lower.count("select") > 1:
+                # Multiple SELECT statements (subqueries), be more careful
+                # Only add LIMIT if we're confident it's the main outer query
+                if not re.search(r"\)\s*$", query_clean.rstrip(";")):
+                    # Doesn't end with ), so likely not a subquery wrapper
+                    pass  # Continue to add LIMIT
+                else:
+                    return query  # Looks like a complex query, don't modify
+
+            # Add default LIMIT of 1000
+            if query_clean.endswith(";"):
+                # Remove semicolon, add LIMIT, then add semicolon back
+                query_with_limit = query_clean[:-1] + " LIMIT 1000;"
+            else:
+                # Just add LIMIT
+                query_with_limit = query_clean + " LIMIT 1000"
+
+            return query_with_limit
+
+        except Exception as e:
+            print(f"Error adding default limit: {e}")
+            return query  # Return original query if any error occurs
