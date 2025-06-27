@@ -58,6 +58,12 @@ class QueryInterface:
         try:
             # Execute query
             result = self.db_manager.execute_query(query)
+
+            # Always clear previous results first
+            if self.current_table:
+                delete_item(self.current_table)
+                self.current_table = None
+
             if not result.result_rows:
                 if self.status_callback:
                     self.status_callback(
@@ -104,10 +110,6 @@ class QueryInterface:
 
     def _setup_results_table(self, columns, query=None):
         """Setup the results table with the given columns."""
-        # Delete existing table if any
-        if self.current_table:
-            delete_item(self.current_table)
-
         # Create new table with dynamic columns and borders
         self.table_counter += 1
         self.current_table = f"query_result_{self.table_counter}"

@@ -94,18 +94,30 @@ class TableBrowserUI:
         else:
             # Add filtered tables as children with indentation
             for table in filtered_tables:
+                table_button_tag = f"table_button_{table}"
+                context_menu_tag = f"context_menu_{table}"
+
+                # Clean up existing items with same tags to avoid conflicts
+                try:
+                    if does_item_exist(table_button_tag):
+                        delete_item(table_button_tag)
+                    if does_item_exist(context_menu_tag):
+                        delete_item(context_menu_tag)
+                except:
+                    pass  # Ignore errors if items don't exist
+
                 table_button = add_button(
                     label=f"  {table}",  # Indent to show hierarchy
                     parent="tables_list",
                     callback=self.select_table_callback,
-                    tag=f"table_button_{table}",
+                    tag=table_button_tag,
                 )
 
                 # Add right-click context menu for copying table name
                 with popup(
-                    parent=f"table_button_{table}",
+                    parent=table_button_tag,
                     mousebutton=1,
-                    tag=f"context_menu_{table}",
+                    tag=context_menu_tag,
                 ):
                     add_menu_item(
                         label="Copy Table Name",
@@ -118,14 +130,14 @@ class TableBrowserUI:
                     # Apply selected table theme
                     if self.theme_manager:
                         bind_item_theme(
-                            f"table_button_{table}",
+                            table_button_tag,
                             self.theme_manager.get_theme("selected_table_button"),
                         )
                 else:
                     # Apply regular table button theme
                     if self.theme_manager:
                         bind_item_theme(
-                            f"table_button_{table}",
+                            table_button_tag,
                             self.theme_manager.get_theme("table_button"),
                         )
 
