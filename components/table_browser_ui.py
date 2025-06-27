@@ -101,6 +101,18 @@ class TableBrowserUI:
                     tag=f"table_button_{table}",
                 )
 
+                # Add right-click context menu for copying table name
+                with popup(
+                    parent=f"table_button_{table}",
+                    mousebutton=1,
+                    tag=f"context_menu_{table}",
+                ):
+                    add_menu_item(
+                        label="Copy Table Name",
+                        callback=self._copy_table_name_callback,
+                        user_data=table,
+                    )
+
                 # Apply appropriate theme based on selection state
                 if table == self.selected_table:
                     # Apply selected table theme
@@ -372,6 +384,36 @@ class TableBrowserUI:
         except Exception as e:
             error_msg = f"Failed to connect to {connection_name}: {str(e)}"
             StatusManager.show_status(error_msg, error=True)
+
+    def _copy_table_name_callback(self, sender, app_data, user_data):
+        """Copy table name to clipboard when context menu item is clicked."""
+        try:
+            table_name = user_data if user_data else ""
+
+            # Use DearPyGui's set_clipboard_text to copy to system clipboard
+            set_clipboard_text(table_name)
+
+            # Show feedback through status manager (if available)
+            try:
+                from ui_components import StatusManager
+
+                StatusManager.show_status(
+                    f"Table name copied to clipboard: {table_name}", error=False
+                )
+            except Exception:
+                # Fallback: print to console if StatusManager isn't available
+                print(f"Table name copied to clipboard: {table_name}")
+
+        except Exception as e:
+            try:
+                from ui_components import StatusManager
+
+                StatusManager.show_status(
+                    f"Error copying table name: {str(e)}", error=True
+                )
+            except Exception:
+                # Fallback: print to console if StatusManager isn't available
+                print(f"Error copying table name: {str(e)}")
 
     def clear_connection_state(self):
         """Clear connection-related state during disconnection."""
