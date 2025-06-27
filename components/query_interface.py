@@ -120,16 +120,27 @@ class QueryInterface:
                             str(cell_value) if cell_value is not None else "NULL"
                         )
 
-                        # Use selectable instead of text to enable click-to-copy
+                        # Use regular table cell instead of selectable to allow right-click menus
+                        # Store the original cell data as user_data for potential future copy functionality
                         cell_tag = (
                             f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
                         )
-                        add_selectable(
-                            label=formatted_cell,
-                            tag=cell_tag,
-                            callback=self._copy_cell_to_clipboard,
-                            user_data=original_cell,  # Original cell content for copying
-                        )
+
+                        # Create table cell with selectable text for copying
+                        with table_cell():
+                            # Use input_text in readonly mode - allows text selection/copying without interfering with right-click
+                            add_input_text(
+                                tag=f"cell_input_{cell_tag}",
+                                default_value=formatted_cell,
+                                readonly=True,  # Read-only allows selection but not editing
+                                width=-1,  # Take full available width
+                                height=0,  # Auto height based on content
+                                no_spaces=False,  # Allow spaces in the text
+                                tab_input=False,  # Don't capture tab navigation
+                                hint="",  # No hint text
+                                multiline=False,  # Single line input
+                                user_data=original_cell,  # Store original for reference
+                            )
 
             # Hide loading animation after all results are displayed
             self._hide_loading()
@@ -139,7 +150,8 @@ class QueryInterface:
 
             if self.status_callback:
                 self.status_callback(
-                    f"Query executed successfully. Rows returned: {len(rows)}", False
+                    f"Query executed successfully. Rows returned: {len(rows)}. Select text and Ctrl+C to copy.",
+                    False,
                 )
 
         except Exception as e:
