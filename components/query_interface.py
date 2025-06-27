@@ -1,5 +1,8 @@
 """Query interface component for ClickHouse Client."""
 
+import datetime
+import json
+import os
 import re
 import time
 from typing import Callable, Optional
@@ -8,6 +11,7 @@ from dearpygui.dearpygui import *
 
 from config import COLOR_ERROR, COLOR_SUCCESS
 from database import DatabaseManager
+from icon_manager import icon_manager
 
 
 class QueryInterface:
@@ -22,6 +26,8 @@ class QueryInterface:
         self.table_theme = None
         self.loading_indicator = None
         self.loading_animation_running = False
+        self.last_query_results = None  # Store last query results for JSON export
+        self.last_column_names = None  # Store column names for JSON export
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -64,7 +70,7 @@ class QueryInterface:
         # Show a message if we added a default limit
         if query != original_query:
             if self.status_callback:
-                self.status_callback("Added default LIMIT 1000 to query", False)
+                self.status_callback("Added default LIMIT 100 to query", False)
 
         # Show loading animation
         self._show_loading()
@@ -84,6 +90,10 @@ class QueryInterface:
             if not result.result_rows:
                 # Hide loading animation for no results case
                 self._hide_loading()
+                # Clear previous results and hide save button
+                self.last_query_results = None
+                self.last_column_names = None
+                self._hide_save_json_button()
                 if self.status_callback:
                     self.status_callback(
                         "Query executed successfully (no results)", False
@@ -93,6 +103,13 @@ class QueryInterface:
             # Get column names and rows
             column_names = result.column_names
             rows = result.result_rows
+
+            # Store results for JSON export
+            self.last_query_results = rows
+            self.last_column_names = column_names
+
+            # Show the save as JSON button
+            self._show_save_json_button()
 
             # Update loading message for table building
             if len(rows) > 100:
@@ -157,6 +174,10 @@ class QueryInterface:
         except Exception as e:
             # Hide loading animation on error
             self._hide_loading()
+            # Clear previous results and hide save button
+            self.last_query_results = None
+            self.last_column_names = None
+            self._hide_save_json_button()
             if self.status_callback:
                 self.status_callback(f"Query failed: {str(e)}", True)
         finally:
@@ -494,16 +515,142 @@ class QueryInterface:
                 else:
                     return query  # Looks like a complex query, don't modify
 
-            # Add default LIMIT of 1000
+            # Add default LIMIT of 100
             if query_clean.endswith(";"):
                 # Remove semicolon, add LIMIT, then add semicolon back
-                query_with_limit = query_clean[:-1] + " LIMIT 1000;"
+                query_with_limit = query_clean[:-1] + " LIMIT 100;"
             else:
                 # Just add LIMIT
-                query_with_limit = query_clean + " LIMIT 1000"
+                query_with_limit = query_clean + " LIMIT 100"
 
             return query_with_limit
 
         except Exception as e:
             print(f"Error adding default limit: {e}")
             return query  # Return original query if any error occurs
+
+    def _show_save_json_button(self):
+        """Show the save as JSON button after a successful query."""
+        try:
+            # Check if button already exists
+            if does_item_exist("save_json_button"):
+                configure_item("save_json_button", show=True)
+            else:
+                # Create the button (this should normally be created in UI setup)
+                print("Warning: save_json_button not found in UI")
+        except Exception as e:
+            print(f"Error showing save JSON button: {e}")
+
+    def _hide_save_json_button(self):
+        """Hide the save as JSON button when there are no results."""
+        try:
+            if does_item_exist("save_json_button"):
+                configure_item("save_json_button", show=False)
+        except Exception as e:
+            print(f"Error hiding save JSON button: {e}")
+
+    def save_as_json_callback(self, sender, data):
+        """Save query results as JSON file."""
+        if not self.last_query_results or not self.last_column_names:
+            if self.status_callback:
+                self.status_callback("No query results to save", True)
+            return
+
+        try:
+            # Show file dialog for user to choose save location
+            self._show_save_file_dialog()
+
+        except Exception as e:
+            if self.status_callback:
+                self.status_callback(f"Error opening file dialog: {str(e)}", True)
+            print(f"Error in save_as_json_callback: {e}")  # Debug logging
+
+    def _show_save_file_dialog(self):
+        """Show file dialog for saving JSON file."""
+        # Generate default filename with timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"query_results_{timestamp}.json"
+
+        # Try to determine default directory
+        home_dir = os.path.expanduser("~")
+        downloads_dir = os.path.join(home_dir, "Downloads")
+
+        if os.path.exists(downloads_dir):
+            default_path = downloads_dir
+        elif os.path.exists(home_dir):
+            default_path = home_dir
+        else:
+            default_path = os.getcwd()
+
+        # Create file dialog
+        with file_dialog(
+            directory_selector=False,
+            show=True,
+            callback=self._save_file_dialog_callback,
+            tag="json_save_file_dialog",
+            width=700,
+            height=400,
+            default_path=default_path,
+            default_filename=default_filename,
+        ):
+            add_file_extension("JSON files (*.json){.json}", color=(0, 255, 0, 255))
+            add_file_extension("All files (*.*){.*}", color=(255, 255, 255, 255))
+
+    def _save_file_dialog_callback(self, sender, app_data):
+        """Handle file dialog callback when user selects a file."""
+        try:
+            # Get the selected file path
+            file_path = app_data["file_path_name"]
+
+            if not file_path:
+                if self.status_callback:
+                    self.status_callback("Save cancelled by user", False)
+                return
+
+            # Ensure the file has .json extension
+            if not file_path.lower().endswith(".json"):
+                file_path += ".json"
+
+            # Convert results to JSON format
+            json_data = self._convert_results_to_json()
+
+            # Write JSON to file
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False, default=str)
+
+            if self.status_callback:
+                self.status_callback(
+                    f"Query results saved to {file_path} ({len(json_data)} rows)", False
+                )
+
+        except Exception as e:
+            if self.status_callback:
+                self.status_callback(f"Error saving JSON file: {str(e)}", True)
+            print(f"Error in _save_file_dialog_callback: {e}")  # Debug logging
+
+    def _convert_results_to_json(self):
+        """Convert query results to JSON format."""
+        json_data = []
+        for row in self.last_query_results:
+            row_dict = {}
+            for col_idx, column_name in enumerate(self.last_column_names):
+                # Handle different data types for JSON serialization
+                cell_value = row[col_idx] if col_idx < len(row) else None
+
+                # Convert non-JSON serializable types
+                if cell_value is None:
+                    row_dict[column_name] = None
+                elif isinstance(cell_value, bytes):
+                    # Convert bytes to string
+                    try:
+                        row_dict[column_name] = cell_value.decode(
+                            "utf-8", errors="replace"
+                        )
+                    except:
+                        row_dict[column_name] = str(cell_value)
+                else:
+                    row_dict[column_name] = cell_value
+
+            json_data.append(row_dict)
+
+        return json_data
