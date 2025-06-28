@@ -187,6 +187,9 @@ class QueryInterface:
             if self.status_callback:
                 self.status_callback(f"Query failed: {str(e)}", True)
         finally:
+            # Hide autocomplete popup after query execution
+            self.hide_autocomplete_popup()
+
             # Final safety check - ensure loading is always cleared
             if self.loading_indicator:
                 try:
