@@ -39,13 +39,13 @@ class AutocompleteManager:
         """Get columns for a table, using cache when possible."""
         if not table_name or not self.db_manager.is_connected:
             return []
-            
+
         table_name = table_name.strip()
-        
+
         # Check cache first
         if table_name in self.table_columns_cache:
             return self.table_columns_cache[table_name]
-            
+
         # Fetch from database
         try:
             columns = self.db_manager.get_table_columns(table_name)
@@ -57,14 +57,14 @@ class AutocompleteManager:
     def extract_tables_from_query(self, query: str) -> Set[str]:
         """Extract table names referenced in the SQL query."""
         tables = set()
-        
+
         if not query or not query.strip():
             return tables
-            
+
         # Convert to uppercase for pattern matching but preserve original case
         query_upper = query.upper()
         query_lines = query.split('\n')
-        
+
         # Pattern to match table names after FROM, JOIN, UPDATE, INSERT INTO, etc.
         patterns = [
             r'\bFROM\s+([`"]?)(\w+)\1(?:\s+(?:AS\s+)?(\w+))?',  # FROM table [AS alias]
@@ -73,14 +73,14 @@ class AutocompleteManager:
             r'\bINSERT\s+INTO\s+([`"]?)(\w+)\1',                # INSERT INTO table
             r'\bDELETE\s+FROM\s+([`"]?)(\w+)\1'                 # DELETE FROM table
         ]
-        
+
         for pattern in patterns:
             matches = re.finditer(pattern, query_upper)
             for match in matches:
                 table_name = match.group(2)
                 if table_name:
                     tables.add(table_name.lower())  # Store as lowercase for consistency
-                    
+
         return tables
 
     def get_cursor_context(self, query: str, cursor_pos: int) -> Dict[str, any]:
@@ -106,17 +106,17 @@ class AutocompleteManager:
                 'context_before': '',
                 'context_after': ''
             }
-            
+
         if cursor_pos < 0:
             cursor_pos = 0
         elif cursor_pos > len(query):
             cursor_pos = len(query)
-            
+
         # Find word boundaries around cursor
         word_start = cursor_pos
         word_end = cursor_pos
         current_word = ""
-        
+
         # If cursor is at the end of the query, check if we're at the end of a word
         if cursor_pos == len(query) and cursor_pos > 0:
             # Check if the last character is part of a word
@@ -139,31 +139,31 @@ class AutocompleteManager:
                 # Find word boundaries around cursor
                 word_start = cursor_pos
                 word_end = cursor_pos
-                
+
                 # Move backward to find word start
                 while word_start > 0 and (query[word_start - 1].isalnum() or query[word_start - 1] in '_'):
                     word_start -= 1
-                    
-                # Move forward to find word end  
+
+                # Move forward to find word end
                 while word_end < len(query) and (query[word_end].isalnum() or query[word_end] in '_'):
                     word_end += 1
-                    
+
                 current_word = query[word_start:word_end]
-        
+
         # Get text before and after cursor position (not word position)
         text_before_cursor = query[:cursor_pos].strip()
         text_after_cursor = query[cursor_pos:].strip()
-        
+
         # Clean and normalize the text for analysis
         context_before = text_before_cursor.upper()
         context_after = text_after_cursor.upper()
-        
+
         # Extract tables from the query
         tables = self.extract_tables_from_query(query)
-        
+
         # Determine autocomplete type based on context - more sophisticated logic
         context_type = self._determine_context_type(context_before, context_after, current_word)
-            
+
         return {
             'word_start': word_start,
             'word_end': word_end,
@@ -173,46 +173,46 @@ class AutocompleteManager:
             'context_before': context_before,
             'context_after': context_after
         }
-    
+
     def _determine_context_type(self, context_before: str, context_after: str, current_word: str) -> str:
         """Determine the appropriate context type for autocomplete suggestions."""
         # Remove comments and normalize whitespace
         context_clean = re.sub(r'--[^\n]*', '', context_before).strip()
-        
+
         print(f"DEBUG: Determining context for: '{context_clean}'")
-        
+
         # Split into tokens to analyze the SQL structure
         tokens = re.findall(r'\b\w+\b', context_clean)
         if not tokens:
             print("DEBUG: No tokens found, returning keyword context")
             return 'keyword'
-        
+
         print(f"DEBUG: Tokens found: {tokens}")
-        
+
         # Look at the last few tokens to determine context
         last_tokens = tokens[-3:] if len(tokens) >= 3 else tokens
         last_token = tokens[-1] if tokens else ''
-        
+
         print(f"DEBUG: Last token: '{last_token}', Last tokens: {last_tokens}")
-        
+
         # Special case: if the last token is a partial word that's not a complete SQL keyword,
         # we need to look at the token before it to determine context
         if current_word and len(tokens) >= 2:
             # Check if current word might be a partial column/table name
             second_last_token = tokens[-2] if len(tokens) >= 2 else ''
-            
+
             print(f"DEBUG: Second last token: '{second_last_token}'")
-            
+
             # If the second-to-last token suggests column context, use column context
             if second_last_token in {'SELECT', 'WHERE', 'HAVING', 'PREWHERE', 'AND', 'OR', 'ON'}:
                 print("DEBUG: Found column context from second-to-last token")
                 return 'column'
-            
+
             # If the second-to-last token suggests table context, use table context
             if second_last_token in {'FROM', 'JOIN', 'UPDATE'} or ' '.join(tokens[-3:-1]) in {'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'}:
                 print("DEBUG: Found table context from second-to-last token")
                 return 'table'
-        
+
         # Table context patterns
         table_keywords = {
             'FROM', 'JOIN', 'UPDATE', 'INTO'
@@ -221,18 +221,18 @@ class AutocompleteManager:
             'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'OUTER JOIN',
             'CROSS JOIN', 'INSERT INTO'
         }
-        
+
         # Check for table context - prioritize this check
         if last_token in table_keywords:
             print(f"DEBUG: Found table context from last token: {last_token}")
             return 'table'
-        
+
         # Check for multi-word table phrases
         last_two = ' '.join(last_tokens[-2:]) if len(last_tokens) >= 2 else ''
         if last_two in table_phrases:
             print(f"DEBUG: Found table context from phrase: {last_two}")
             return 'table'
-        
+
         # Column context patterns
         column_keywords = {
             'SELECT', 'WHERE', 'HAVING', 'PREWHERE', 'BY', 'AND', 'OR', 'ON'
@@ -240,16 +240,16 @@ class AutocompleteManager:
         column_phrases = {
             'ORDER BY', 'GROUP BY'
         }
-        
+
         # Check for column context
         if last_token in column_keywords:
             print(f"DEBUG: Found column context from last token: {last_token}")
             return 'column'
-            
+
         if last_two in column_phrases:
             print(f"DEBUG: Found column context from phrase: {last_two}")
             return 'column'
-        
+
         # Check for comma in SELECT clause (column context)
         if ',' in context_before and any(kw in context_before for kw in ['SELECT']):
             # Check if we're still in the SELECT clause (before FROM)
@@ -258,12 +258,37 @@ class AutocompleteManager:
             if from_pos == -1 or select_pos > from_pos:
                 print("DEBUG: Found column context from SELECT clause comma")
                 return 'column'
-        
+
+        # Special case: Check if we're positioned after column names in a SELECT statement
+        # This handles cases like "SELECT name " where we want to add more columns
+        if "SELECT" in context_before:
+            select_pos = context_before.rfind("SELECT")
+            from_pos = context_before.rfind("FROM")
+
+            # If we're after SELECT but before FROM (or no FROM yet)
+            if from_pos == -1 or select_pos > from_pos:
+                # Check if the content after SELECT looks like column names
+                after_select = context_before[select_pos + 6 :].strip()
+
+                # If we have content after SELECT that's not just whitespace, and we're not immediately
+                # after SELECT keyword, we're likely in column position
+                if after_select and not after_select.endswith(
+                    ("FROM", "WHERE", "GROUP", "ORDER", "HAVING")
+                ):
+                    # Additional check: make sure we're not in a function call or complex expression
+                    if not re.search(
+                        r"\([^)]*$", after_select
+                    ):  # Not in unclosed parentheses
+                        print(
+                            "DEBUG: Found column context from SELECT statement position"
+                        )
+                        return "column"
+
         # Check for comparison operators (column context)
         if re.search(r'[=<>!]\s*$', context_before):
             print("DEBUG: Found column context from comparison operator")
             return 'column' 
-            
+
         # Check for WHERE clause continuation
         if 'WHERE' in context_before:
             where_pos = context_before.rfind('WHERE')
@@ -272,7 +297,7 @@ class AutocompleteManager:
             if re.search(r'\b(AND|OR)\s*$', after_where):
                 print("DEBUG: Found column context from WHERE clause continuation")
                 return 'column'
-        
+
         # Default to keyword suggestions
         print("DEBUG: Defaulting to keyword context")
         return 'keyword'
@@ -286,25 +311,25 @@ class AutocompleteManager:
         """
         context = self.get_cursor_context(query, cursor_pos)
         suggestions = []
-        
+
         print(f"DEBUG: Context for '{query}' at pos {cursor_pos}: {context}")
-        
+
         if context['context_type'] == 'none':
             return suggestions
-            
+
         current_word = context['current_word'].lower()
         print(f"DEBUG: Current word: '{current_word}', Context type: {context['context_type']}")
-        
+
         if context['context_type'] == 'column':
             # Suggest column names from ALL tables in the database (not just query tables)
             all_columns = set()
             table_sources = {}  # Track which table each column comes from
-            
+
             if self.db_manager.is_connected:
                 try:
                     # Get all tables in the database
                     all_tables = self.db_manager.get_tables()
-                    
+
                     # Get columns from all tables
                     for table_name in all_tables:
                         columns = self.get_table_columns(table_name)
@@ -314,10 +339,10 @@ class AutocompleteManager:
                             if col_key not in table_sources:
                                 table_sources[col_key] = []
                             table_sources[col_key].append((table_name, col_type))
-                
+
                 except Exception as e:
                     print(f"Error fetching all table columns: {e}")
-            
+
             # If no columns found and database is not connected, provide helpful message
             if not all_columns and not self.db_manager.is_connected:
                 suggestions.append({
@@ -348,13 +373,13 @@ class AutocompleteManager:
                         if len(sources) > 3:
                             tables_str += f" (+{len(sources) - 3} more)"
                         description = f"Column from tables: {tables_str}"
-                        
+
                     suggestions.append({
                         'text': col_name,
                         'type': 'column',
                         'description': description
                     })
-                    
+
         elif context['context_type'] == 'table':
             # Suggest ALL table names from the database
             if self.db_manager.is_connected:
@@ -368,7 +393,7 @@ class AutocompleteManager:
                             description = f"Table: {table_name} ({column_count} columns)"
                         except:
                             description = f"Table: {table_name}"
-                            
+
                         suggestions.append({
                             'text': table_name,
                             'type': 'table', 
@@ -391,7 +416,7 @@ class AutocompleteManager:
                     'type': 'info',
                     'description': 'Database connection required for table names'
                 })
-                
+
                 # Also provide common table name suggestions as fallback
                 common_tables = ['users', 'orders', 'products', 'events', 'logs', 'analytics', 'metrics', 'sessions']
                 for table in common_tables:
@@ -401,7 +426,7 @@ class AutocompleteManager:
                             'type': 'table',
                             'description': f"Common table name: {table}"
                         })
-                    
+
         elif context['context_type'] == 'keyword':
             # Suggest SQL keywords
             for keyword in self.sql_keywords:
@@ -412,14 +437,14 @@ class AutocompleteManager:
                         'type': 'keyword',
                         'description': f"SQL keyword: {keyword}"
                     })
-        
+
         # Apply fuzzy matching and filtering - but don't filter out everything when current_word is empty
         if current_word and current_word.strip():
             suggestions = self._filter_and_rank_suggestions(suggestions, current_word)
         else:
             # No current word - return all suggestions without filtering
             suggestions = suggestions[:20]
-        
+
         return suggestions
 
     def _fuzzy_match_score(self, text: str, query: str) -> float:
@@ -429,41 +454,41 @@ class AutocompleteManager:
         """
         if not query or query.strip() == "":
             return 1.0
-        
+
         text_lower = text.lower()
         query_lower = query.lower()
-        
+
         # Exact match gets highest score
         if text_lower == query_lower:
             return 1.0
-        
+
         # Starts with match gets high score
         if text_lower.startswith(query_lower):
             return 0.95
-        
+
         # Contains match gets good score
         if query_lower in text_lower:
             # Score based on position - earlier is better
             pos = text_lower.find(query_lower)
             position_bonus = 1.0 - (pos / len(text_lower))
             return 0.7 + (position_bonus * 0.2)  # 0.7 to 0.9
-        
+
         # Word boundary match (e.g., "us" matches "user_id" at word start)
         import re
         if re.search(r'\b' + re.escape(query_lower), text_lower):
             return 0.6
-        
+
         # Character sequence match (fuzzy) - be more lenient
         query_chars = list(query_lower)
         text_chars = list(text_lower)
-        
+
         if len(query_chars) > len(text_chars):
             return 0.0  # Query longer than text
-        
+
         score = 0.0
         text_idx = 0
         matches = 0
-        
+
         for query_char in query_chars:
             # Find this character in the remaining text
             found = False
@@ -476,24 +501,24 @@ class AutocompleteManager:
                     found = True
                     matches += 1
                     break
-            
+
             if not found:
                 break  # Stop at first non-matching character
-        
+
         # Require at least 30% of characters to match for short queries (was 50-70%)
         min_match_ratio = 0.3 if len(query_chars) <= 3 else 0.5
         if matches / len(query_chars) < min_match_ratio:
             return 0.0
-        
+
         # Cap fuzzy matches but be more generous
         return min(score, 0.5)  # Fuzzy matches up to 0.5
-    
+
     def _filter_and_rank_suggestions(self, suggestions: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
         """Filter and rank suggestions based on relevance to the query."""
         if not query or query.strip() == "":
             # If no query or empty query, return all suggestions (don't filter)
             return suggestions[:20]
-        
+
         # Calculate scores for each suggestion
         scored_suggestions = []
         for suggestion in suggestions:
@@ -503,13 +528,13 @@ class AutocompleteManager:
                 suggestion_copy['_score'] = 1.0  # Give info messages high priority
                 scored_suggestions.append(suggestion_copy)
                 continue
-                
+
             score = self._fuzzy_match_score(suggestion['text'], query)
             if score > 0.0:  # Only include matches with some relevance
                 suggestion_copy = suggestion.copy()
                 suggestion_copy['_score'] = score
                 scored_suggestions.append(suggestion_copy)
-        
+
         # If no matches found but we have a query, be more lenient
         if not scored_suggestions and query:
             # Include suggestions that contain any character from the query
@@ -523,14 +548,14 @@ class AutocompleteManager:
                     suggestion_copy = suggestion.copy()
                     suggestion_copy['_score'] = 0.1  # Low score but included
                     scored_suggestions.append(suggestion_copy)
-        
+
         # Sort by score (descending) and then by text (ascending)
         scored_suggestions.sort(key=lambda x: (-x['_score'], x['text'].lower()))
-        
+
         # Remove the score field and return top matches
         for suggestion in scored_suggestions:
             del suggestion['_score']
-        
+
         return scored_suggestions[:20]
 
     def clear_cache(self):

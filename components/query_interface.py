@@ -667,16 +667,11 @@ class QueryInterface:
     # Autocomplete functionality
     def show_autocomplete_suggestions(self, query: str, cursor_pos: int):
         """Show autocomplete suggestions in the embedded container."""
-        print(
-            f"DEBUG: show_autocomplete_suggestions called with query='{query}', cursor_pos={cursor_pos}"
-        )
         print(f"DEBUG: Database connected: {self.db_manager.is_connected}")
 
         suggestions = self.autocomplete_manager.get_suggestions(query, cursor_pos)
-        print(f"DEBUG: Got {len(suggestions)} suggestions: {suggestions}")
 
         if not suggestions:
-            print("DEBUG: No suggestions, hiding autocomplete container")
             self.hide_autocomplete_popup()
             return
 
@@ -687,7 +682,6 @@ class QueryInterface:
         try:
             # Check if autocomplete container exists
             if not does_item_exist("autocomplete_container"):
-                print("DEBUG: Autocomplete container doesn't exist")
                 return
 
             # Clear existing content
@@ -757,8 +751,6 @@ class QueryInterface:
             show_item("autocomplete_container")
             configure_item("autocomplete_container", show=True)
 
-            print(f"DEBUG: Autocomplete container updated and shown")
-
         except Exception as e:
             print(f"DEBUG: Error updating autocomplete container: {e}")
             import traceback
@@ -771,7 +763,6 @@ class QueryInterface:
             if does_item_exist("autocomplete_container"):
                 hide_item("autocomplete_container")
                 configure_item("autocomplete_container", show=False)
-                print("DEBUG: Autocomplete container hidden")
         except Exception as e:
             print(f"DEBUG: Error hiding autocomplete container: {e}")
 
@@ -783,15 +774,9 @@ class QueryInterface:
             current_query = get_value("query_input")
             cursor_pos = len(current_query)  # Approximate cursor position
 
-            print(
-                f"DEBUG: Applying suggestion '{suggestion['text']}' to query '{current_query}'"
-            )
-
             context = self.autocomplete_manager.get_cursor_context(
                 current_query, cursor_pos
             )
-
-            print(f"DEBUG: Context returned: {context}")
 
             # Replace the current word with the suggestion
             if (
@@ -799,20 +784,23 @@ class QueryInterface:
                 and context.get("word_start") is not None
                 and context.get("word_end") is not None
             ):
-                print(
-                    f"DEBUG: Using context-based replacement: word_start={context['word_start']}, word_end={context['word_end']}"
-                )
-                new_query = (
-                    current_query[: context["word_start"]]
-                    + suggestion["text"]
-                    + current_query[context["word_end"] :]
-                )
+                # Special handling for column suggestions in SELECT statements
+                if (
+                    suggestion.get("type") == "column"
+                    and context["context_type"] == "column"
+                ):
+                    new_query = self._apply_column_suggestion(
+                        current_query, suggestion, context
+                    )
+                else:
+                    new_query = (
+                        current_query[: context["word_start"]]
+                        + suggestion["text"]
+                        + current_query[context["word_end"] :]
+                    )
 
                 # Calculate cursor position for the end of the inserted text
                 new_cursor_pos = context["word_start"] + len(suggestion["text"])
-                print(
-                    f"DEBUG: New query: '{new_query}', cursor will be at position {new_cursor_pos}"
-                )
 
                 # Add space after keywords/tables for better SQL flow
                 if context["context_type"] in [
@@ -820,15 +808,11 @@ class QueryInterface:
                     "table",
                 ] and not new_query.endswith(" "):
                     new_query += " "
-                    print(
-                        "DEBUG: Added space after suggestion for better cursor positioning"
-                    )
 
                 # Apply the new text using a character-by-character simulation
                 self._apply_text_with_cursor_positioning(new_query)
 
             else:
-                print("DEBUG: Using fallback replacement")
                 # Fallback: just append the suggestion with a space
                 if current_query and not current_query.endswith(" "):
                     new_query = current_query + " " + suggestion["text"]
@@ -844,10 +828,6 @@ class QueryInterface:
 
                 # Apply the new text using the same technique
                 self._apply_text_with_cursor_positioning(new_query)
-                print(
-                    f"DEBUG: New query (fallback): '{new_query}' with cursor positioning"
-                )
-
             self.hide_autocomplete_popup()
 
             # Simplified and more reliable focus restoration
@@ -863,8 +843,6 @@ class QueryInterface:
                     current_text = get_value("query_input")
                     if current_text and current_text.strip():
                         self.handle_query_input_callback("query_input", current_text)
-
-                    print("DEBUG: Focus restored and autocomplete triggered")
                 except Exception as e:
                     print(f"DEBUG: Error in focus restoration: {e}")
 
@@ -884,25 +862,16 @@ class QueryInterface:
         try:
             # Get the suggestion data from user_data
             user_data = get_item_user_data(sender)
-            print(f"DEBUG: Button clicked, user_data: {user_data}")
 
             if user_data and isinstance(user_data, dict) and "suggestion" in user_data:
                 suggestion = user_data["suggestion"]
-                print(f"DEBUG: Found suggestion in user_data: {suggestion}")
                 self.apply_autocomplete_suggestion(suggestion)
             elif user_data is not None and isinstance(user_data, int):
                 # Fallback for integer index
                 suggestion_index = user_data
                 if 0 <= suggestion_index < len(self.autocomplete_suggestions):
                     suggestion = self.autocomplete_suggestions[suggestion_index]
-                    print(
-                        f"DEBUG: Found suggestion at index {suggestion_index}: {suggestion}"
-                    )
                     self.apply_autocomplete_suggestion(suggestion)
-                else:
-                    print(f"DEBUG: Invalid suggestion index: {suggestion_index}")
-            else:
-                print(f"DEBUG: Invalid user_data format: {user_data}")
         except Exception as e:
             print(f"Error in suggestion button callback: {e}")
             import traceback
@@ -935,37 +904,17 @@ class QueryInterface:
                         # Check if query hasn't changed (user stopped typing)
                         current_query = get_value("query_input")
                         if current_query == query:  # Query hasn't changed
-                            cursor_pos = len(query)
-                            print(
-                                f"DEBUG: Triggering autocomplete for '{query}' at position {cursor_pos}"
-                            )
-                            self.show_autocomplete_suggestions(query, cursor_pos)
+                            self.show_autocomplete_suggestions(query, len(query))
 
-                    # Run in background thread to not block UI
-                    thread = threading.Thread(target=delayed_autocomplete)
-                    thread.daemon = True
-                    thread.start()
-
-                elif last_char in ["\n", "\t", ";", "(", ")", " "]:
-                    # Hide autocomplete on these separators and space at the end
-                    # But only if there's no partial word being typed
-                    cursor_pos = len(query)
-                    context = self.autocomplete_manager.get_cursor_context(
-                        query, cursor_pos
-                    )
-                    current_word = context.get("current_word", "").strip()
-
-                    # If no current word is being typed, hide popup
-                    if not current_word:
-                        self.hide_autocomplete_popup()
+                    autocomplete_thread = threading.Thread(target=delayed_autocomplete)
+                    autocomplete_thread.daemon = True
+                    autocomplete_thread.start()
             else:
+                # Hide autocomplete if query is empty or too short
                 self.hide_autocomplete_popup()
 
         except Exception as e:
             print(f"Error in query input callback: {e}")
-            import traceback
-
-            traceback.print_exc()
 
     def setup_autocomplete_callbacks(self):
         """Setup autocomplete callbacks for the query input."""
@@ -981,9 +930,6 @@ class QueryInterface:
         try:
             query = get_value("query_input")
             cursor_pos = len(query) if query else 0
-            print(
-                f"DEBUG: Manual autocomplete trigger - Query: '{query}', Position: {cursor_pos}"
-            )
 
             # Always show suggestions when manually triggered, even for empty query
             self.show_autocomplete_suggestions(query, cursor_pos)
@@ -993,6 +939,74 @@ class QueryInterface:
             import traceback
 
             traceback.print_exc()
+
+    def _apply_column_suggestion(self, current_query, suggestion, context):
+        """Apply column suggestion with intelligent comma handling for SELECT statements."""
+        try:
+            query_upper = current_query.upper()
+
+            # Check if we're in a SELECT statement
+            select_pos = query_upper.rfind("SELECT")
+            from_pos = query_upper.find("FROM", select_pos) if select_pos != -1 else -1
+
+            # Determine if we're in the column list part of a SELECT statement
+            cursor_pos = context["word_start"]
+            is_in_select_columns = (
+                select_pos != -1
+                and cursor_pos > select_pos
+                and (from_pos == -1 or cursor_pos < from_pos)
+            )
+
+            if is_in_select_columns:
+                # We're in the SELECT column list - check if we need to add a comma
+                text_before_word = current_query[: context["word_start"]].strip()
+                text_after_select = text_before_word[
+                    text_before_word.upper().rfind("SELECT") + 6 :
+                ].strip()
+
+                # Check if there are already columns (look for non-whitespace after SELECT)
+                has_existing_columns = (
+                    text_after_select
+                    and text_after_select not in ["", "*"]
+                    and not text_after_select.endswith(",")
+                )
+
+                # Special case: if we have SELECT *, we should treat it as having existing columns
+                if text_after_select == "*":
+                    has_existing_columns = True
+
+                if has_existing_columns:
+                    # Add comma before the new column
+                    replacement_text = ", " + suggestion["text"]
+                else:
+                    # First column or replacing existing single column
+                    replacement_text = suggestion["text"]
+
+                # Apply the replacement
+                new_query = (
+                    current_query[: context["word_start"]]
+                    + replacement_text
+                    + current_query[context["word_end"] :]
+                )
+
+            else:
+                # Not in SELECT column list, use normal replacement
+                new_query = (
+                    current_query[: context["word_start"]]
+                    + suggestion["text"]
+                    + current_query[context["word_end"] :]
+                )
+
+            return new_query
+
+        except Exception as e:
+            print(f"DEBUG: Error in _apply_column_suggestion: {e}")
+            # Fallback to normal replacement
+            return (
+                current_query[: context["word_start"]]
+                + suggestion["text"]
+                + current_query[context["word_end"] :]
+            )
 
     def _apply_text_with_cursor_positioning(self, new_text: str):
         """Apply new text to query input with cursor positioning at the end."""
@@ -1009,8 +1023,6 @@ class QueryInterface:
             # Now set the new text - since we cleared it first, cursor should end up at the end
             set_value("query_input", new_text)
             focus_item("query_input")
-
-            print(f"DEBUG: Applied text '{new_text}' with cursor positioning")
 
         except Exception as e:
             print(f"DEBUG: Error in _apply_text_with_cursor_positioning: {e}")
