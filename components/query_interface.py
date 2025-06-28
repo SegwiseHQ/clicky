@@ -804,13 +804,25 @@ class QueryInterface:
                     + suggestion["text"]
                     + current_query[context["word_end"] :]
                 )
-                set_value("query_input", new_query)
 
-                # Set cursor to end of inserted text
+                # Calculate cursor position for the end of the inserted text
                 new_cursor_pos = context["word_start"] + len(suggestion["text"])
                 print(
                     f"DEBUG: New query: '{new_query}', cursor will be at position {new_cursor_pos}"
                 )
+
+                # Add space after keywords/tables for better SQL flow
+                if context["context_type"] in [
+                    "keyword",
+                    "table",
+                ] and not new_query.endswith(" "):
+                    new_query += " "
+                    print(
+                        "DEBUG: Added space after suggestion for better cursor positioning"
+                    )
+
+                # Apply the new text using a character-by-character simulation
+                self._apply_text_with_cursor_positioning(new_query)
 
             else:
                 print("DEBUG: Using fallback replacement")
@@ -819,16 +831,44 @@ class QueryInterface:
                     new_query = current_query + " " + suggestion["text"]
                 else:
                     new_query = current_query + suggestion["text"]
-                set_value("query_input", new_query)
-                print(f"DEBUG: New query (fallback): '{new_query}'")
+
+                # Add space after keywords and tables for better flow
+                if suggestion.get("type") in [
+                    "keyword",
+                    "table",
+                ] and not new_query.endswith(" "):
+                    new_query += " "
+
+                # Apply the new text using the same technique
+                self._apply_text_with_cursor_positioning(new_query)
+                print(
+                    f"DEBUG: New query (fallback): '{new_query}' with cursor positioning"
+                )
 
             self.hide_autocomplete_popup()
 
-            # Ensure focus returns to query input after applying suggestion
-            try:
-                focus_item("query_input")
-            except:
-                pass
+            # Simplified and more reliable focus restoration
+            import threading
+            import time
+
+            def restore_focus():
+                time.sleep(0.05)  # Slightly longer delay to ensure text is fully set
+                try:
+                    focus_item("query_input")
+
+                    # Trigger autocomplete to show next suggestions if applicable
+                    current_text = get_value("query_input")
+                    if current_text and current_text.strip():
+                        self.handle_query_input_callback("query_input", current_text)
+
+                    print("DEBUG: Focus restored and autocomplete triggered")
+                except Exception as e:
+                    print(f"DEBUG: Error in focus restoration: {e}")
+
+            # Run focus restoration in background
+            focus_thread = threading.Thread(target=restore_focus)
+            focus_thread.daemon = True
+            focus_thread.start()
 
         except Exception as e:
             print(f"Error applying autocomplete suggestion: {e}")
@@ -950,3 +990,26 @@ class QueryInterface:
             import traceback
 
             traceback.print_exc()
+
+    def _apply_text_with_cursor_positioning(self, new_text: str):
+        """Apply new text to query input with cursor positioning at the end."""
+        try:
+            # Clear the current text first
+            set_value("query_input", "")
+            focus_item("query_input")
+
+            # Give a very brief moment for the focus to take effect
+            import time
+
+            time.sleep(0.01)
+
+            # Now set the new text - since we cleared it first, cursor should end up at the end
+            set_value("query_input", new_text)
+            focus_item("query_input")
+
+            print(f"DEBUG: Applied text '{new_text}' with cursor positioning")
+
+        except Exception as e:
+            print(f"DEBUG: Error in _apply_text_with_cursor_positioning: {e}")
+            # Fallback to simple set_value
+            set_value("query_input", new_text)
