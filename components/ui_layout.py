@@ -136,6 +136,21 @@ class UILayout:
                     "query_input", self.theme_manager.get_theme("input_enhanced")
                 )
 
+            # Autocomplete suggestions container (initially hidden)
+            with child_window(
+                tag="autocomplete_container",
+                width=-1,
+                height=200,
+                show=False,  # Initially hidden
+                border=True,
+                no_scrollbar=False,
+                horizontal_scrollbar=False,
+            ):
+                add_text(
+                    "Autocomplete suggestions will appear here",
+                    tag="autocomplete_placeholder",
+                )
+
             # Run Query button
             add_button(
                 label=f"{icon_manager.get('query')} Run Query", tag="run_query_button"
@@ -143,6 +158,17 @@ class UILayout:
             if self.theme_manager:
                 bind_item_theme(
                     "run_query_button", self.theme_manager.get_theme("button_primary")
+                )
+
+            # Autocomplete button (next to Run Query)
+            add_same_line()
+            add_button(
+                label="💡 Autocomplete", tag="autocomplete_trigger_button", width=120
+            )
+            if self.theme_manager:
+                bind_item_theme(
+                    "autocomplete_trigger_button",
+                    self.theme_manager.get_theme("button_secondary"),
                 )
 
             # Save as JSON button - positioned below Run Query button
@@ -259,6 +285,15 @@ class UILayout:
             configure_item(
                 "save_json_button", callback=query_interface.save_as_json_callback
             )
+
+            # Connect autocomplete trigger button
+            configure_item(
+                "autocomplete_trigger_button",
+                callback=query_interface.trigger_autocomplete_manually,
+            )
+
+            # Setup autocomplete callbacks
+            query_interface.setup_autocomplete_callbacks()
 
     def connect_callbacks_to_data_explorer(self, data_explorer):
         """Connect the data explorer callbacks after creation."""
