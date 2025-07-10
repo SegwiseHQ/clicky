@@ -160,17 +160,6 @@ class UILayout:
                     "run_query_button", self.theme_manager.get_theme("button_primary")
                 )
 
-            # Autocomplete button (next to Run Query)
-            add_same_line()
-            add_button(
-                label="💡 Autocomplete", tag="autocomplete_trigger_button", width=120
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "autocomplete_trigger_button",
-                    self.theme_manager.get_theme("button_secondary"),
-                )
-
             # Save as JSON button - positioned below Run Query button
             add_button(
                 label=f"{icon_manager.get('export')} Save as JSON",
@@ -198,7 +187,7 @@ class UILayout:
         with group(tag="explorer_section", show=False):
             # Explorer header with close button
             with group(horizontal=True):
-                add_text("", tag="explorer_title", color=(255, 255, 0))
+                add_text("", tag="explorer_title", color=(220, 220, 220))
                 if self.theme_manager:
                     bind_item_theme(
                         "explorer_title", self.theme_manager.get_theme("header_text")
@@ -286,13 +275,7 @@ class UILayout:
                 "save_json_button", callback=query_interface.save_as_json_callback
             )
 
-            # Connect autocomplete trigger button
-            configure_item(
-                "autocomplete_trigger_button",
-                callback=query_interface.trigger_autocomplete_manually,
-            )
-
-            # Setup autocomplete callbacks
+            # Setup autocomplete callbacks (for the input field)
             query_interface.setup_autocomplete_callbacks()
 
     def connect_callbacks_to_data_explorer(self, data_explorer):
