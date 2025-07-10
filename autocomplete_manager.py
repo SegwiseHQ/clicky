@@ -7,49 +7,39 @@ from database import DatabaseManager
 
 
 class AutocompleteManager:
-    """Manages SQL autocomplete functionality for column names and table suggestions."""
+    """Manages SQL autocomplete functionality for table suggestions."""
 
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
-        self.table_columns_cache: Dict[str, List[Tuple[str, str]]] = {}
-        self.sql_keywords = [
-            # Primary keywords
-            'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP',
-            'ALTER', 'TABLE', 'DATABASE', 'INDEX', 'VIEW', 'JOIN', 'INNER', 'LEFT', 
-            'RIGHT', 'FULL', 'OUTER', 'ON', 'UNION', 'ALL', 'DISTINCT', 'GROUP', 'BY', 
-            'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'AS', 'CASE', 'WHEN', 'THEN', 'ELSE', 
-            'END', 'IF', 'EXISTS', 'WITH', 'RECURSIVE', 'USING', 'NATURAL',
-            # ClickHouse specific keywords
-            'PREWHERE', 'FINAL', 'SAMPLE', 'ARRAY', 'GLOBAL', 'ANY', 'ASOF', 'SETTINGS',
-            'FORMAT', 'INTO OUTFILE', 'TOTALS', 'EXTREMES', 'OPTIMIZE', 'SYSTEM',
-            # Functions (common and ClickHouse-specific)
-            'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CAST', 'SUBSTRING', 'LENGTH', 
-            'UPPER', 'LOWER', 'TRIM', 'CONCAT', 'NOW', 'CURRENT_DATE', 'toString',
-            'toDate', 'toInt32', 'toFloat64', 'formatDateTime', 'groupArray', 'uniq',
-            'uniqExact', 'topK', 'quantile', 'median', 'stddevPop', 'varPop',
-            'argMax', 'argMin', 'any', 'anyLast', 'groupUniqArray', 'sumMap',
-            'minMap', 'maxMap', 'avgMap', 'groupBitAnd', 'groupBitOr', 'groupBitXor',
-            # Data types
-            'UInt8', 'UInt16', 'UInt32', 'UInt64', 'Int8', 'Int16', 'Int32', 'Int64',
-            'Float32', 'Float64', 'String', 'FixedString', 'UUID', 'Date', 'DateTime',
-            'DateTime64', 'Enum8', 'Enum16', 'Array', 'Tuple', 'Nullable', 'LowCardinality'
-        ]
+        self.tables_cache: List[str] = []
+
+    def cache_tables(self):
+        """Cache the list of tables from the database."""
+        if not self.db_manager.is_connected:
+            self.tables_cache = []
+            return
+
+        try:
+            self.tables_cache = self.db_manager.get_tables()
+            print(f"DEBUG: Cached {len(self.tables_cache)} tables")
+        except Exception as e:
+            print(f"DEBUG: Error caching tables: {e}")
+            self.tables_cache = []
+
+    def get_cached_tables(self) -> List[str]:
+        """Get the cached list of tables."""
+        return self.tables_cache.copy()
 
     def get_table_columns(self, table_name: str) -> List[Tuple[str, str]]:
-        """Get columns for a table, using cache when possible."""
+        """Get columns for a table - kept for compatibility but not used in autocomplete."""
         if not table_name or not self.db_manager.is_connected:
             return []
 
         table_name = table_name.strip()
 
-        # Check cache first
-        if table_name in self.table_columns_cache:
-            return self.table_columns_cache[table_name]
-
         # Fetch from database
         try:
             columns = self.db_manager.get_table_columns(table_name)
-            self.table_columns_cache[table_name] = columns
             return columns
         except Exception:
             return []
@@ -179,38 +169,25 @@ class AutocompleteManager:
         # Remove comments and normalize whitespace
         context_clean = re.sub(r'--[^\n]*', '', context_before).strip()
 
-        print(f"DEBUG: Determining context for: '{context_clean}'")
-
         # Split into tokens to analyze the SQL structure
         tokens = re.findall(r'\b\w+\b', context_clean)
         if not tokens:
-            print("DEBUG: No tokens found, returning keyword context")
-            return 'keyword'
-
-        print(f"DEBUG: Tokens found: {tokens}")
+            return "none"
 
         # Look at the last few tokens to determine context
         last_tokens = tokens[-3:] if len(tokens) >= 3 else tokens
         last_token = tokens[-1] if tokens else ''
 
-        print(f"DEBUG: Last token: '{last_token}', Last tokens: {last_tokens}")
-
         # Special case: if the last token is a partial word that's not a complete SQL keyword,
         # we need to look at the token before it to determine context
         if current_word and len(tokens) >= 2:
-            # Check if current word might be a partial column/table name
+            # Check if current word might be a partial table name
             second_last_token = tokens[-2] if len(tokens) >= 2 else ''
 
-            print(f"DEBUG: Second last token: '{second_last_token}'")
-
-            # If the second-to-last token suggests column context, use column context
-            if second_last_token in {'SELECT', 'WHERE', 'HAVING', 'PREWHERE', 'AND', 'OR', 'ON'}:
-                print("DEBUG: Found column context from second-to-last token")
-                return 'column'
-
             # If the second-to-last token suggests table context, use table context
-            if second_last_token in {'FROM', 'JOIN', 'UPDATE'} or ' '.join(tokens[-3:-1]) in {'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'}:
-                print("DEBUG: Found table context from second-to-last token")
+            if second_last_token in {"FROM", "JOIN", "UPDATE"} or " ".join(
+                tokens[-3:-1]
+            ) in {"INNER JOIN", "LEFT JOIN", "RIGHT JOIN"}:
                 return 'table'
 
         # Table context patterns
@@ -224,7 +201,6 @@ class AutocompleteManager:
 
         # Check for table context - prioritize this check
         if last_token in table_keywords:
-            print(f"DEBUG: Found table context from last token: {last_token}")
             return 'table'
 
         # Check for multi-word table phrases
@@ -233,74 +209,9 @@ class AutocompleteManager:
             print(f"DEBUG: Found table context from phrase: {last_two}")
             return 'table'
 
-        # Column context patterns
-        column_keywords = {
-            'SELECT', 'WHERE', 'HAVING', 'PREWHERE', 'BY', 'AND', 'OR', 'ON'
-        }
-        column_phrases = {
-            'ORDER BY', 'GROUP BY'
-        }
-
-        # Check for column context
-        if last_token in column_keywords:
-            print(f"DEBUG: Found column context from last token: {last_token}")
-            return 'column'
-
-        if last_two in column_phrases:
-            print(f"DEBUG: Found column context from phrase: {last_two}")
-            return 'column'
-
-        # Check for comma in SELECT clause (column context)
-        if ',' in context_before and any(kw in context_before for kw in ['SELECT']):
-            # Check if we're still in the SELECT clause (before FROM)
-            select_pos = context_before.rfind('SELECT')
-            from_pos = context_before.rfind('FROM')
-            if from_pos == -1 or select_pos > from_pos:
-                print("DEBUG: Found column context from SELECT clause comma")
-                return 'column'
-
-        # Special case: Check if we're positioned after column names in a SELECT statement
-        # This handles cases like "SELECT name " where we want to add more columns
-        if "SELECT" in context_before:
-            select_pos = context_before.rfind("SELECT")
-            from_pos = context_before.rfind("FROM")
-
-            # If we're after SELECT but before FROM (or no FROM yet)
-            if from_pos == -1 or select_pos > from_pos:
-                # Check if the content after SELECT looks like column names
-                after_select = context_before[select_pos + 6 :].strip()
-
-                # If we have content after SELECT that's not just whitespace, and we're not immediately
-                # after SELECT keyword, we're likely in column position
-                if after_select and not after_select.endswith(
-                    ("FROM", "WHERE", "GROUP", "ORDER", "HAVING")
-                ):
-                    # Additional check: make sure we're not in a function call or complex expression
-                    if not re.search(
-                        r"\([^)]*$", after_select
-                    ):  # Not in unclosed parentheses
-                        print(
-                            "DEBUG: Found column context from SELECT statement position"
-                        )
-                        return "column"
-
-        # Check for comparison operators (column context)
-        if re.search(r'[=<>!]\s*$', context_before):
-            print("DEBUG: Found column context from comparison operator")
-            return 'column' 
-
-        # Check for WHERE clause continuation
-        if 'WHERE' in context_before:
-            where_pos = context_before.rfind('WHERE')
-            # Look for logical operators after WHERE
-            after_where = context_before[where_pos:]
-            if re.search(r'\b(AND|OR)\s*$', after_where):
-                print("DEBUG: Found column context from WHERE clause continuation")
-                return 'column'
-
-        # Default to keyword suggestions
-        print("DEBUG: Defaulting to keyword context")
-        return 'keyword'
+        # No suggestions for other contexts
+        print("DEBUG: No table context found, returning none")
+        return "none"
 
     def get_suggestions(self, query: str, cursor_pos: int) -> List[Dict[str, str]]:
         """
@@ -320,123 +231,57 @@ class AutocompleteManager:
         current_word = context['current_word'].lower()
         print(f"DEBUG: Current word: '{current_word}', Context type: {context['context_type']}")
 
-        if context['context_type'] == 'column':
-            # Suggest column names from ALL tables in the database (not just query tables)
-            all_columns = set()
-            table_sources = {}  # Track which table each column comes from
+        if context["context_type"] == "table":
+            # Suggest table names from the cached list
+            cached_tables = self.get_cached_tables()
 
-            if self.db_manager.is_connected:
-                try:
-                    # Get all tables in the database
-                    all_tables = self.db_manager.get_tables()
-
-                    # Get columns from all tables
-                    for table_name in all_tables:
+            if cached_tables:
+                for table_name in sorted(cached_tables):
+                    # Get table metadata for better descriptions
+                    try:
                         columns = self.get_table_columns(table_name)
-                        for col_name, col_type in columns:
-                            col_key = col_name.lower()
-                            all_columns.add(col_key)
-                            if col_key not in table_sources:
-                                table_sources[col_key] = []
-                            table_sources[col_key].append((table_name, col_type))
+                        column_count = len(columns)
+                        description = f"Table: {table_name} ({column_count} columns)"
+                    except:
+                        description = f"Table: {table_name}"
 
-                except Exception as e:
-                    print(f"Error fetching all table columns: {e}")
-
-            # If no columns found and database is not connected, provide helpful message
-            if not all_columns and not self.db_manager.is_connected:
-                suggestions.append({
-                    'text': '-- Connect to database to see column suggestions --',
-                    'type': 'info',
-                    'description': 'Database connection required for column names'
-                })
-            # If no columns found but database is connected, provide fallback suggestions
-            elif not all_columns and self.db_manager.is_connected:
-                # Common column name suggestions as fallback
-                common_columns = ['id', 'name', 'email', 'created_at', 'updated_at', 'status', 'timestamp', 'user_id', 'date', 'time', 'count', 'value']
-                for col in common_columns:
-                    suggestions.append({
-                        'text': col,
-                        'type': 'common_column',
-                        'description': f"Common column name: {col}"
-                    })
+                    suggestions.append(
+                        {
+                            "text": table_name,
+                            "type": "table",
+                            "description": description,
+                        }
+                    )
             else:
-                # Filter columns that match the current word
-                for col_name in sorted(all_columns):
-                    # Get source info for description
-                    sources = table_sources[col_name]
-                    if len(sources) == 1:
-                        table, col_type = sources[0]
-                        description = f"Column from {table} ({col_type})"
-                    else:
-                        tables_str = ', '.join([s[0] for s in sources[:3]])  # Show first 3 tables
-                        if len(sources) > 3:
-                            tables_str += f" (+{len(sources) - 3} more)"
-                        description = f"Column from tables: {tables_str}"
-
-                    suggestions.append({
-                        'text': col_name,
-                        'type': 'column',
-                        'description': description
-                    })
-
-        elif context['context_type'] == 'table':
-            # Suggest ALL table names from the database
-            if self.db_manager.is_connected:
-                try:
-                    all_tables = self.db_manager.get_tables()
-                    for table_name in sorted(all_tables):
-                        # Get table metadata for better descriptions
-                        try:
-                            columns = self.get_table_columns(table_name)
-                            column_count = len(columns)
-                            description = f"Table: {table_name} ({column_count} columns)"
-                        except:
-                            description = f"Table: {table_name}"
-
-                        suggestions.append({
-                            'text': table_name,
-                            'type': 'table', 
-                            'description': description
-                        })
-                except Exception as e:
-                    print(f"Error fetching tables: {e}")
-                    # Fallback: suggest common table names
-                    common_tables = ['users', 'orders', 'products', 'events', 'logs', 'analytics', 'metrics', 'sessions']
-                    for table in common_tables:
-                        suggestions.append({
-                            'text': table,
-                            'type': 'table',
-                            'description': f"Common table name: {table}"
-                        })
-            else:
-                # If not connected, suggest common table names and info message
-                suggestions.append({
-                    'text': '-- Connect to database to see table suggestions --',
-                    'type': 'info',
-                    'description': 'Database connection required for table names'
-                })
+                # If no cached tables, provide info message
+                if not self.db_manager.is_connected:
+                    suggestions.append(
+                        {
+                            "text": "-- Connect to database to see table suggestions --",
+                            "type": "info",
+                            "description": "Database connection required for table names",
+                        }
+                    )
+                else:
+                    # Database connected but no cached tables - suggest refreshing
+                    suggestions.append(
+                        {
+                            "text": "-- No tables found. Check database connection --",
+                            "type": "info",
+                            "description": "No tables available in the current database",
+                        }
+                    )
 
                 # Also provide common table name suggestions as fallback
                 common_tables = ['users', 'orders', 'products', 'events', 'logs', 'analytics', 'metrics', 'sessions']
                 for table in common_tables:
-                    if not current_word or table.lower().startswith(current_word.lower()):
-                        suggestions.append({
-                            'text': table,
-                            'type': 'table',
-                            'description': f"Common table name: {table}"
-                        })
-
-        elif context['context_type'] == 'keyword':
-            # Suggest SQL keywords
-            for keyword in self.sql_keywords:
-                keyword_lower = keyword.lower()
-                if not current_word or keyword_lower.startswith(current_word):
-                    suggestions.append({
-                        'text': keyword,
-                        'type': 'keyword',
-                        'description': f"SQL keyword: {keyword}"
-                    })
+                    suggestions.append(
+                        {
+                            "text": table,
+                            "type": "table",
+                            "description": f"Common table name: {table}",
+                        }
+                    )
 
         # Apply fuzzy matching and filtering - but don't filter out everything when current_word is empty
         if current_word and current_word.strip():
@@ -559,5 +404,6 @@ class AutocompleteManager:
         return scored_suggestions[:20]
 
     def clear_cache(self):
-        """Clear the table columns cache."""
-        self.table_columns_cache.clear()
+        """Clear the tables cache."""
+        self.tables_cache.clear()
+        print("DEBUG: Tables cache cleared")

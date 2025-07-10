@@ -108,7 +108,6 @@ class UIHelpers:
                 configure_item(tag, **kwargs)
                 return True
             else:
-                print(f"[DEBUG] Item {tag} does not exist, skipping configuration")
                 return False
         except Exception as e:
             print(f"[DEBUG] Failed to configure item {tag}: {e}")
@@ -132,7 +131,6 @@ class UIHelpers:
                 bind_item_theme(tag, theme)
                 return True
             else:
-                print(f"[DEBUG] Item {tag} does not exist, skipping theme binding")
                 return False
         except Exception as e:
             print(f"[DEBUG] Failed to bind theme to {tag}: {e}")
