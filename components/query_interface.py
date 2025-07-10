@@ -705,16 +705,10 @@ class QueryInterface:
 
                 for i, suggestion in enumerate(suggestions):
                     color = (255, 255, 255, 255)  # Default white
-                    if suggestion["type"] == "column":
-                        color = (78, 201, 176, 255)  # Teal for columns
-                    elif suggestion["type"] == "table":
+                    if suggestion["type"] == "table":
                         color = (86, 156, 214, 255)  # Blue for tables
-                    elif suggestion["type"] == "keyword":
-                        color = (220, 220, 170, 255)  # Yellow for keywords
                     elif suggestion["type"] == "info":
                         color = (255, 165, 0, 255)  # Orange for info messages
-                    elif suggestion["type"] == "common_column":
-                        color = (144, 238, 144, 255)  # Light green for common columns
 
                     # Skip creating clickable buttons for info messages
                     if suggestion["type"] == "info":
@@ -784,29 +778,18 @@ class QueryInterface:
                 and context.get("word_start") is not None
                 and context.get("word_end") is not None
             ):
-                # Special handling for column suggestions in SELECT statements
-                if (
-                    suggestion.get("type") == "column"
-                    and context["context_type"] == "column"
-                ):
-                    new_query = self._apply_column_suggestion(
-                        current_query, suggestion, context
-                    )
-                else:
-                    new_query = (
-                        current_query[: context["word_start"]]
-                        + suggestion["text"]
-                        + current_query[context["word_end"] :]
-                    )
+                # Apply the suggestion to replace the current word
+                new_query = (
+                    current_query[: context["word_start"]]
+                    + suggestion["text"]
+                    + current_query[context["word_end"] :]
+                )
 
                 # Calculate cursor position for the end of the inserted text
                 new_cursor_pos = context["word_start"] + len(suggestion["text"])
 
-                # Add space after keywords/tables for better SQL flow
-                if context["context_type"] in [
-                    "keyword",
-                    "table",
-                ] and not new_query.endswith(" "):
+                # Add space after tables for better SQL flow
+                if context["context_type"] == "table" and not new_query.endswith(" "):
                     new_query += " "
 
                 # Apply the new text using a character-by-character simulation
@@ -819,11 +802,8 @@ class QueryInterface:
                 else:
                     new_query = current_query + suggestion["text"]
 
-                # Add space after keywords and tables for better flow
-                if suggestion.get("type") in [
-                    "keyword",
-                    "table",
-                ] and not new_query.endswith(" "):
+                # Add space after tables for better flow
+                if suggestion.get("type") == "table" and not new_query.endswith(" "):
                     new_query += " "
 
                 # Apply the new text using the same technique
@@ -939,74 +919,6 @@ class QueryInterface:
             import traceback
 
             traceback.print_exc()
-
-    def _apply_column_suggestion(self, current_query, suggestion, context):
-        """Apply column suggestion with intelligent comma handling for SELECT statements."""
-        try:
-            query_upper = current_query.upper()
-
-            # Check if we're in a SELECT statement
-            select_pos = query_upper.rfind("SELECT")
-            from_pos = query_upper.find("FROM", select_pos) if select_pos != -1 else -1
-
-            # Determine if we're in the column list part of a SELECT statement
-            cursor_pos = context["word_start"]
-            is_in_select_columns = (
-                select_pos != -1
-                and cursor_pos > select_pos
-                and (from_pos == -1 or cursor_pos < from_pos)
-            )
-
-            if is_in_select_columns:
-                # We're in the SELECT column list - check if we need to add a comma
-                text_before_word = current_query[: context["word_start"]].strip()
-                text_after_select = text_before_word[
-                    text_before_word.upper().rfind("SELECT") + 6 :
-                ].strip()
-
-                # Check if there are already columns (look for non-whitespace after SELECT)
-                has_existing_columns = (
-                    text_after_select
-                    and text_after_select not in ["", "*"]
-                    and not text_after_select.endswith(",")
-                )
-
-                # Special case: if we have SELECT *, we should treat it as having existing columns
-                if text_after_select == "*":
-                    has_existing_columns = True
-
-                if has_existing_columns:
-                    # Add comma before the new column
-                    replacement_text = ", " + suggestion["text"]
-                else:
-                    # First column or replacing existing single column
-                    replacement_text = suggestion["text"]
-
-                # Apply the replacement
-                new_query = (
-                    current_query[: context["word_start"]]
-                    + replacement_text
-                    + current_query[context["word_end"] :]
-                )
-
-            else:
-                # Not in SELECT column list, use normal replacement
-                new_query = (
-                    current_query[: context["word_start"]]
-                    + suggestion["text"]
-                    + current_query[context["word_end"] :]
-                )
-
-            return new_query
-
-        except Exception as e:
-            print(f"DEBUG: Error in _apply_column_suggestion: {e}")
-            # Fallback to normal replacement
-            return (
-                current_query[: context["word_start"]]
-                + suggestion["text"]
-                + current_query[context["word_end"] :]
-            )
 
     def _apply_text_with_cursor_positioning(self, new_text: str):
         """Apply new text to query input with cursor positioning at the end."""

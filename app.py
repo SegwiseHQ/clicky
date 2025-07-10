@@ -166,6 +166,9 @@ class ClickHouseClientApp:
                 )
                 UIHelpers.safe_bind_item_theme("connection_indicator", connected_theme)
 
+                # Cache tables for autocomplete after successful connection
+                self.query_interface.autocomplete_manager.cache_tables()
+
                 self.save_credentials_callback(
                     None, None
                 )  # Auto-save on successful connection
@@ -200,6 +203,9 @@ class ClickHouseClientApp:
         """Handle database disconnection."""
         try:
             message = self.db_manager.disconnect()
+
+            # Clear autocomplete cache
+            self.query_interface.autocomplete_manager.clear_cache()
 
             # Update UI
             self.table_browser.clear_tables()
