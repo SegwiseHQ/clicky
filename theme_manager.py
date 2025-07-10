@@ -189,13 +189,19 @@ class ThemeManager:
 
     def _create_window_themes(self):
         """Create window-specific themes."""
-        # Status window theme
+        # Status window theme - notification banner style
         with theme() as self.themes["status_window"]:
             with theme_component(mvChildWindow):
                 add_theme_color(mvThemeCol_ChildBg, COLOR_STATUS_BG)
-                add_theme_color(mvThemeCol_Border, COLOR_BORDER)
-                add_theme_style(mvStyleVar_ChildRounding, 6)
-                add_theme_style(mvStyleVar_WindowPadding, 10, 10)
+                add_theme_color(
+                    mvThemeCol_Border, COLOR_STATUS_BG
+                )  # Match border to background
+                add_theme_style(
+                    mvStyleVar_ChildRounding, 8
+                )  # More rounded for banner look
+                add_theme_style(
+                    mvStyleVar_WindowPadding, 15, 12
+                )  # More padding for banner
 
         # Tables panel theme
         with theme() as self.themes["tables_panel"]:
@@ -260,6 +266,13 @@ class ThemeManager:
         with theme() as self.themes["column_text"]:
             with theme_component(mvText):
                 add_theme_color(mvThemeCol_Text, COLOR_SUCCESS)
+
+        # Status banner text theme
+        with theme() as self.themes["status_text"]:
+            with theme_component(mvText):
+                add_theme_color(
+                    mvThemeCol_Text, (240, 240, 240)
+                )  # Light text for banner
 
     def apply_global_theme(self):
         """Apply the global theme to the application."""

@@ -52,11 +52,11 @@ COLOR_CONNECTED = (40, 167, 69)  # Connection indicator green
 COLOR_DISCONNECTED = (220, 53, 69)  # Connection indicator red
 
 # Background and text colors
-COLOR_BACKGROUND = (26, 32, 44)  # Dark blue-gray background
-COLOR_SURFACE = (45, 55, 72)  # Slightly lighter surface
+COLOR_BACKGROUND = (32, 32, 32)  # Dark gray background
+COLOR_SURFACE = (48, 48, 48)  # Slightly lighter surface
 COLOR_TEXT_PRIMARY = (237, 242, 247)  # Light text
 COLOR_TEXT_SECONDARY = (160, 174, 192)  # Muted text
-COLOR_ACCENT = (66, 153, 225)  # Blue accent color
+COLOR_ACCENT = (70, 130, 180)  # Darker blue accent color
 
 # Button colors
 COLOR_BUTTON_PRIMARY = (66, 153, 225)  # Primary button
@@ -65,8 +65,8 @@ COLOR_BUTTON_DANGER = (220, 53, 69)  # Danger button
 COLOR_BUTTON_SECONDARY = (74, 85, 104)  # Secondary button
 
 # Special element colors
-COLOR_EXPLORER_TITLE = (255, 193, 7)  # Explorer title yellow
-COLOR_STATUS_BG = (45, 55, 72)  # Status background
+COLOR_EXPLORER_TITLE = (220, 220, 220)  # Light gray title text
+COLOR_STATUS_BG = (25, 77, 51)  # Dark green status banner background
 COLOR_BORDER = (74, 85, 104)  # Border color
 
 # Icons and symbols (Font Awesome Unicode)

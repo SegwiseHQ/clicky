@@ -67,7 +67,7 @@ class UILayout:
 
                     add_text(
                         "Database Tables",
-                        color=(255, 255, 0),
+                        color=(220, 220, 220),
                         tag="database_tables_header",
                     )
                     if self.theme_manager:
@@ -120,14 +120,14 @@ class UILayout:
                 bind_item_theme(
                     "status_window", self.theme_manager.get_theme("status_window")
                 )
-            add_text("Status:", color=(255, 255, 0))
+            add_text("Status:", color=(240, 240, 240))
             add_group(tag="status_text")
             # Status will be set by StatusManager
 
     def _setup_query_section(self):
         """Setup the query input and results section."""
         with group(tag="query_section"):
-            add_text(f"{icon_manager.get('query')} Query", color=(255, 255, 0))
+            add_text(f"{icon_manager.get('query')} Query", color=(220, 220, 220))
             add_input_text(
                 tag="query_input", multiline=True, width=-1, height=QUERY_INPUT_HEIGHT
             )
