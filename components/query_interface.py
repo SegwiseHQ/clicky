@@ -31,9 +31,7 @@ class QueryInterface:
         self.last_query_results = None  # Store last query results for JSON export
         self.last_column_names = None  # Store column names for JSON export
         # Autocomplete state
-        self.autocomplete_popup = None
         self.autocomplete_suggestions = []
-        self.selected_suggestion_index = 0
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -484,12 +482,6 @@ class QueryInterface:
             self.loading_animation_running = False
             print("Loading state reset complete")
 
-    def _animate_loading(self):
-        """Animate the loading progress bar (handled automatically by DearPyGui)."""
-        # DearPyGui automatically animates indeterminate progress bars (value = -1.0)
-        # No manual animation needed
-        pass
-
     def _add_default_limit(self, query: str) -> str:
         """Add default LIMIT clause if not already present in the query."""
         try:
@@ -676,7 +668,6 @@ class QueryInterface:
             return
 
         self.autocomplete_suggestions = suggestions
-        self.selected_suggestion_index = 0
 
         # Clear the autocomplete container and populate with suggestions
         try:
@@ -786,7 +777,6 @@ class QueryInterface:
                 )
 
                 # Calculate cursor position for the end of the inserted text
-                new_cursor_pos = context["word_start"] + len(suggestion["text"])
 
                 # Add space after tables for better SQL flow
                 if context["context_type"] == "table" and not new_query.endswith(" "):
@@ -904,21 +894,6 @@ class QueryInterface:
 
         except Exception as e:
             print(f"Error setting up autocomplete callbacks: {e}")
-
-    def trigger_autocomplete_manually(self):
-        """Manually trigger autocomplete suggestions."""
-        try:
-            query = get_value("query_input")
-            cursor_pos = len(query) if query else 0
-
-            # Always show suggestions when manually triggered, even for empty query
-            self.show_autocomplete_suggestions(query, cursor_pos)
-
-        except Exception as e:
-            print(f"Error triggering autocomplete manually: {e}")
-            import traceback
-
-            traceback.print_exc()
 
     def _apply_text_with_cursor_positioning(self, new_text: str):
         """Apply new text to query input with cursor positioning at the end."""

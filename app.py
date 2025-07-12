@@ -33,7 +33,6 @@ from theme_manager import ThemeManager
 from utils import (
     FontManager,
     UIHelpers,
-    format_connection_string,
     validate_connection_params,
 )
 

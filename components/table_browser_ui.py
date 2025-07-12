@@ -106,7 +106,7 @@ class TableBrowserUI:
                 except:
                     pass  # Ignore errors if items don't exist
 
-                table_button = add_button(
+                add_button(
                     label=f"  {table}",  # Indent to show hierarchy
                     parent="tables_list",
                     callback=self.select_table_callback,
@@ -193,7 +193,6 @@ class TableBrowserUI:
         table_name = sender.replace("table_button_", "")
 
         # Update selected table for visual highlighting
-        old_selected = self.selected_table
         self.selected_table = table_name
 
         # Get current scroll position before refreshing display

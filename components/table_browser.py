@@ -28,13 +28,6 @@ class TableBrowser:
         self.last_click_time: Dict[str, float] = {}
         self.double_click_callback: Optional[Callable[[str], None]] = None
         self.status_callback: Optional[Callable[[str, bool], None]] = None
-        self.left_aligned_button_theme = None
-
-    def initialize_theme(self):
-        """Initialize the left-aligned button theme after DearPyGUI context is created."""
-        with theme() as self.left_aligned_button_theme:
-            with theme_component(mvButton):
-                add_theme_style(mvStyleVar_ButtonTextAlign, 0.0, 0.5)
 
     def set_double_click_callback(self, callback: Callable[[str], None]):
         """Set callback for table double-click events."""
