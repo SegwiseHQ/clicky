@@ -33,6 +33,10 @@ class ConnectionManager:
         self.theme_manager = theme_manager
         self.stored_credentials = None
 
+        # Optional callbacks for additional functionality
+        self.on_connect_success = None  # Called after successful connection
+        self.on_disconnect = None  # Called after disconnection
+
     def connect_callback(self, sender, data):
         """Handle database connection."""
         # Disable connect button and show connecting status
@@ -94,6 +98,10 @@ class ConnectionManager:
                 # Update button states
                 UIHelpers.safe_configure_item("connect_button", enabled=True)
                 UIHelpers.safe_configure_item("disconnect_button", enabled=True)
+
+                # Call success callback if provided
+                if self.on_connect_success:
+                    self.on_connect_success()
             else:
                 raise Exception(message)
 
@@ -135,6 +143,10 @@ class ConnectionManager:
             # Update button states
             UIHelpers.safe_configure_item("connect_button", enabled=True)
             UIHelpers.safe_configure_item("disconnect_button", enabled=False)
+
+            # Call disconnect callback if provided
+            if self.on_disconnect:
+                self.on_disconnect()
 
         except Exception as e:
             StatusManager.show_status(f"Error during disconnect: {str(e)}", error=True)

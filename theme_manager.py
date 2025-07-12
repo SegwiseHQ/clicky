@@ -108,44 +108,60 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_IndentSpacing, 20)
 
     def _create_button_themes(self):
-        """Create button themes for different button types."""
-        # Primary button theme
+        """Create button themes for different button types with desaturated colors."""
+        # Primary button theme (Connect button - blue-500)
         with theme() as self.themes["button_primary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_PRIMARY)
-                add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
-                add_theme_color(mvThemeCol_ButtonActive, COLOR_ACCENT)
+                add_theme_color(
+                    mvThemeCol_ButtonHovered, (37, 99, 235)
+                )  # Darker blue on hover
+                add_theme_color(
+                    mvThemeCol_ButtonActive, (29, 78, 216)
+                )  # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 6)
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
-        # Success button theme
+        # Success button theme (Save As button - emerald-500)
         with theme() as self.themes["button_success"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SUCCESS)
-                add_theme_color(mvThemeCol_ButtonHovered, COLOR_SUCCESS)
-                add_theme_color(mvThemeCol_ButtonActive, (32, 134, 55))
+                add_theme_color(
+                    mvThemeCol_ButtonHovered, (5, 150, 105)
+                )  # Darker emerald on hover
+                add_theme_color(
+                    mvThemeCol_ButtonActive, (4, 120, 87)
+                )  # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 6)
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
-        # Danger button theme
+        # Danger button theme (Delete button - red-500 toned down)
         with theme() as self.themes["button_danger"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_DANGER)
-                add_theme_color(mvThemeCol_ButtonHovered, COLOR_ERROR)
-                add_theme_color(mvThemeCol_ButtonActive, (176, 42, 55))
+                add_theme_color(
+                    mvThemeCol_ButtonHovered, (220, 38, 38)
+                )  # Darker red on hover
+                add_theme_color(
+                    mvThemeCol_ButtonActive, (185, 28, 28)
+                )  # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 6)
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 
-        # Secondary button theme
+        # Secondary button theme (Disconnect/Refresh - gray-500)
         with theme() as self.themes["button_secondary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SECONDARY)
-                add_theme_color(mvThemeCol_ButtonHovered, COLOR_BORDER)
-                add_theme_color(mvThemeCol_ButtonActive, COLOR_TEXT_SECONDARY)
-                add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
+                add_theme_color(
+                    mvThemeCol_ButtonHovered, (75, 85, 99)
+                )  # Darker gray on hover
+                add_theme_color(
+                    mvThemeCol_ButtonActive, (55, 65, 81)
+                )  # Even darker on click
+                add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 6)
                 add_theme_style(mvStyleVar_FramePadding, 12, 8)
 

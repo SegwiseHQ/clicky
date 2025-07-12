@@ -58,11 +58,15 @@ COLOR_TEXT_PRIMARY = (237, 242, 247)  # Light text
 COLOR_TEXT_SECONDARY = (160, 174, 192)  # Muted text
 COLOR_ACCENT = (70, 130, 180)  # Darker blue accent color
 
-# Button colors
-COLOR_BUTTON_PRIMARY = (66, 153, 225)  # Primary button
-COLOR_BUTTON_SUCCESS = (40, 167, 69)  # Success button
-COLOR_BUTTON_DANGER = (220, 53, 69)  # Danger button
-COLOR_BUTTON_SECONDARY = (74, 85, 104)  # Secondary button
+# Button colors - Desaturated palette for better contrast balance
+COLOR_BUTTON_PRIMARY = (59, 130, 246)  # #3B82F6 (blue-500) - Connect button
+COLOR_BUTTON_SUCCESS = (16, 185, 129)  # #10B981 (emerald-500) - Save As button
+COLOR_BUTTON_DANGER = (239, 68, 68)  # #EF4444 (red-500 toned down) - Delete button
+COLOR_BUTTON_SECONDARY = (
+    107,
+    114,
+    128,
+)  # #6B7280 (gray-500) - Disconnect/secondary buttons
 
 # Special element colors
 COLOR_EXPLORER_TITLE = (220, 220, 220)  # Light gray title text

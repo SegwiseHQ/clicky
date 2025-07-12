@@ -27,6 +27,9 @@ class CredentialsUI:
         self.connection_manager = connection_manager
         self.theme_manager = theme_manager
 
+        # Optional callbacks for UI updates
+        self.on_credentials_saved = None  # Called after credentials are saved
+
     def save_credentials_callback(self, sender, data):
         """Save current connection credentials with default name (legacy)."""
         try:
@@ -70,6 +73,10 @@ class CredentialsUI:
                 self.refresh_credentials_callback(None, None)
                 # Clear the name input
                 UIHelpers.safe_configure_item("credential_name_input", default_value="")
+
+                # Call callback if provided (for UI updates)
+                if self.on_credentials_saved:
+                    self.on_credentials_saved()
 
         except Exception as e:
             StatusManager.show_status(f"Error saving credentials: {str(e)}", error=True)
@@ -173,36 +180,22 @@ class CredentialsUI:
             width=500,
             height=600,
         ):
-            add_text(
-                "ClickHouse Connection Settings", color=(255, 193, 7)
-            )  # Yellow header
+            add_text("ClickHouse Connection Settings", color=(220, 220, 220))
             add_separator()
 
             # Credential management section
-            add_text("Saved Connections:", color=(255, 255, 0))
-            with group(horizontal=True):
-                add_combo(
-                    label="Saved Credentials",
-                    tag="credentials_combo",
-                    callback=self.load_selected_credentials_callback,
-                    width=250,
+            add_text("Saved Connections:", color=(220, 220, 220))
+            add_combo(
+                label="Saved Credentials",
+                tag="credentials_combo",
+                callback=self.load_selected_credentials_callback,
+                width=250,
+            )
+            if self.theme_manager:
+                bind_item_theme(
+                    "credentials_combo",
+                    self.theme_manager.get_theme("combo_enhanced"),
                 )
-                if self.theme_manager:
-                    bind_item_theme(
-                        "credentials_combo",
-                        self.theme_manager.get_theme("combo_enhanced"),
-                    )
-                add_button(
-                    label="Refresh",
-                    callback=self.refresh_credentials_callback,
-                    width=80,
-                    tag="refresh_credentials_button",
-                )
-                if self.theme_manager:
-                    bind_item_theme(
-                        "refresh_credentials_button",
-                        self.theme_manager.get_theme("button_secondary"),
-                    )
 
             add_text("Save New Connection:")
             with group(horizontal=True):

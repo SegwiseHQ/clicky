@@ -145,7 +145,7 @@ class TableBrowserUI:
         if filtered_tables:
             # Add a separator before showing other connections
             add_separator(parent="tables_list")
-            add_text("Other Connections:", parent="tables_list", color=(255, 193, 7))
+            add_text("Other Connections:", parent="tables_list", color=(220, 220, 220))
 
             # Show other available connections below the table list
             credential_names = self.credentials_manager.get_credential_names()
