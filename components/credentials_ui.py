@@ -177,12 +177,9 @@ class CredentialsUI:
             label="Connection Settings",
             modal=True,
             tag="connection_settings_modal",
-            width=500,
-            height=600,
+            width=700,
+            height=500,
         ):
-            add_text("ClickHouse Connection Settings", color=(220, 220, 220))
-            add_separator()
-
             # Credential management section
             add_text("Saved Connections:", color=(220, 220, 220))
             add_combo(
@@ -194,7 +191,7 @@ class CredentialsUI:
             if self.theme_manager:
                 bind_item_theme(
                     "credentials_combo",
-                    self.theme_manager.get_theme("combo_enhanced"),
+                    self.theme_manager.get_theme("connection_combo"),
                 )
 
             add_text("Save New Connection:")
@@ -205,7 +202,7 @@ class CredentialsUI:
                 if self.theme_manager:
                     bind_item_theme(
                         "credential_name_input",
-                        self.theme_manager.get_theme("input_enhanced"),
+                        self.theme_manager.get_theme("connection_input"),
                     )
                 add_button(
                     label="Save As",
@@ -230,51 +227,73 @@ class CredentialsUI:
 
             add_separator()
 
-            # Connection parameters with left-aligned labels
-            add_text("Host/Server Address:")
-            add_input_text(
-                default_value=DEFAULT_HOST,
-                tag="host_input",
-                hint="e.g., localhost, 192.168.1.100, clickhouse.example.com",
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "host_input", self.theme_manager.get_theme("input_enhanced")
-                )
+            # Connection parameters with grouped layout for reduced height
+            # Host and Port on same row
+            add_text("Server Connection:")
+            with group(horizontal=True):
+                with group():
+                    add_text("Host/Server Address:")
+                    add_input_text(
+                        default_value=DEFAULT_HOST,
+                        tag="host_input",
+                        hint="e.g., localhost, 192.168.1.100, clickhouse.example.com",
+                        width=400,
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "host_input",
+                            self.theme_manager.get_theme("connection_input"),
+                        )
 
-            add_text("Port Number:")
-            add_input_text(
-                default_value=DEFAULT_PORT,
-                tag="port_input",
-                hint="Default: 9000 (Native), 8123 (HTTP)",
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "port_input", self.theme_manager.get_theme("input_enhanced")
-                )
+                add_spacing(count=10)
 
-            add_text("Username:")
-            add_input_text(
-                default_value=DEFAULT_USERNAME,
-                tag="username_input",
-                hint="ClickHouse user account name",
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "username_input", self.theme_manager.get_theme("input_enhanced")
-                )
+                with group():
+                    add_text("Port:")
+                    add_input_text(
+                        default_value=DEFAULT_PORT,
+                        tag="port_input",
+                        hint="Default: 9000 (Native), 8123 (HTTP)",
+                        width=120,
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "port_input",
+                            self.theme_manager.get_theme("connection_input"),
+                        )
 
-            add_text("Password:")
-            add_input_text(
-                password=True,
-                tag="password_input",
-                hint="Leave empty if no password required",
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "password_input", self.theme_manager.get_theme("input_enhanced")
-                )
+            # Username and Password on same row
+            with group(horizontal=True):
+                with group():
+                    add_text("Username:")
+                    add_input_text(
+                        default_value=DEFAULT_USERNAME,
+                        tag="username_input",
+                        hint="ClickHouse user account name",
+                        width=250,
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "username_input",
+                            self.theme_manager.get_theme("connection_input"),
+                        )
 
+                add_spacing(count=10)
+
+                with group():
+                    add_text("Password:")
+                    add_input_text(
+                        password=True,
+                        tag="password_input",
+                        hint="Leave empty if no password required",
+                        width=250,
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "password_input",
+                            self.theme_manager.get_theme("connection_input"),
+                        )
+
+            # Database on its own row (full width)
             add_text("Database Name:")
             add_input_text(
                 default_value=DEFAULT_DATABASE,
@@ -283,7 +302,7 @@ class CredentialsUI:
             )
             if self.theme_manager:
                 bind_item_theme(
-                    "database_input", self.theme_manager.get_theme("input_enhanced")
+                    "database_input", self.theme_manager.get_theme("connection_input")
                 )
 
             add_separator()
@@ -304,6 +323,9 @@ class CredentialsUI:
                     bind_item_theme(
                         "connect_button", self.theme_manager.get_theme("button_primary")
                     )
+
+                add_spacing(count=5)
+
                 add_button(
                     label="Disconnect",
                     callback=(
@@ -313,21 +335,12 @@ class CredentialsUI:
                     ),
                     tag="disconnect_button",
                     width=120,
-                    enabled=False,
                 )
                 if self.theme_manager:
                     bind_item_theme(
                         "disconnect_button",
-                        self.theme_manager.get_theme("button_danger"),
+                        self.theme_manager.get_theme("button_secondary"),
                     )
-                add_text("Disconnected", tag="connection_indicator", color=COLOR_ERROR)
-
-            add_separator()
-
-            # Close button
-            add_button(
-                label="Close", callback=lambda: delete_item("connection_settings_modal")
-            )
 
             # Auto-refresh credentials when modal opens
             self.refresh_credentials_callback(None, None)
