@@ -99,7 +99,7 @@ class DataExplorer:
                 add_text(
                     "Loading data preview...",
                     parent="explorer_main_table",
-                    color=(255, 255, 0),
+                    color=(220, 220, 220),
                 )
 
             # Clear row details panel if it exists

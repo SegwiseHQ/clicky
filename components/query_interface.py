@@ -699,7 +699,7 @@ class QueryInterface:
             with group(parent="autocomplete_container"):
                 add_text(
                     f"Autocomplete ({len(suggestions)} suggestions):",
-                    color=(255, 255, 0),
+                    color=(220, 220, 220),
                 )
                 add_separator()
 
