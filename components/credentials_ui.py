@@ -186,7 +186,7 @@ class CredentialsUI:
             # Credential management section
             add_text("Saved Connections:", color=(220, 220, 220))
             add_combo(
-                label="Saved Credentials",
+                label="",
                 tag="credentials_combo",
                 callback=self.load_selected_credentials_callback,
                 width=250,
