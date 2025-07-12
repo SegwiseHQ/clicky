@@ -204,36 +204,6 @@ class ConnectionManager:
         # If we get here, no matching credential was found
         return ""
 
-    def get_connection_display_name(self) -> str:
-        """Get a formatted display name for the current connection."""
-        if not self.db_manager.is_connected or not self.db_manager.connection_info:
-            return "Not Connected"
-
-        # Try to find the saved credential name for this connection
-        connection_name = self.find_credential_name_for_connection()
-
-        # If we found a saved name, use it as the display name
-        if connection_name:
-            # Use the saved name directly without emojis
-            return connection_name
-
-        # Fallback to technical connection info if no saved name is found
-        info = self.db_manager.connection_info
-        host = info.get("host", "Unknown")
-        port = info.get("port", "Unknown")
-        database = info.get("database", "Unknown")
-
-        # Create a readable connection name without emojis
-        if "clickhouse.cloud" in str(host).lower():
-            # For cloud connections, show a cleaner name
-            return f"{host}/{database}"
-        elif host in ["localhost", "127.0.0.1"]:
-            # For local connections
-            return f"Local ({database})"
-        else:
-            # For other remote connections
-            return f"{host}:{port}/{database}"
-
     def auto_load_and_connect(self):
         """Auto-load credentials without attempting connection on startup."""
         try:

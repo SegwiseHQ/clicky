@@ -53,7 +53,6 @@ class AutocompleteManager:
 
         # Convert to uppercase for pattern matching but preserve original case
         query_upper = query.upper()
-        query_lines = query.split('\n')
 
         # Pattern to match table names after FROM, JOIN, UPDATE, INSERT INTO, etc.
         patterns = [

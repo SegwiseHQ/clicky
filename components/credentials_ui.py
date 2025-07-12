@@ -81,23 +81,6 @@ class CredentialsUI:
         except Exception as e:
             StatusManager.show_status(f"Error saving credentials: {str(e)}", error=True)
 
-    def load_credentials_callback(self, sender, data):
-        """Load saved connection credentials (legacy - loads first available)."""
-        try:
-            success, credentials, message = (
-                self.credentials_manager.load_credentials_legacy()
-            )
-
-            if success and credentials and self.connection_manager:
-                self.connection_manager.set_form_values(credentials)
-
-            StatusManager.show_status(message, error=not success)
-
-        except Exception as e:
-            StatusManager.show_status(
-                f"Error loading credentials: {str(e)}", error=True
-            )
-
     def load_selected_credentials_callback(self, sender, data):
         """Load credentials selected from dropdown."""
         try:

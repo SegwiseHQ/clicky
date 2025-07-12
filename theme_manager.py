@@ -282,8 +282,8 @@ class ThemeManager:
                     mvThemeCol_FrameBgActive, (180, 180, 180, 255)
                 )  # Even darker gray when active
                 add_theme_color(
-                    mvThemeCol_Text, (30, 30, 30, 255)
-                )  # Dark text for contrast
+                    mvThemeCol_Text, (255, 255, 255, 255)
+                )  # White text for better contrast
                 add_theme_color(mvThemeCol_Button, COLOR_ACCENT)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
                 add_theme_style(mvStyleVar_FrameRounding, 8)
