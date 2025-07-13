@@ -6,16 +6,8 @@ from theme_manager import ThemeManager
 from ui_components import TableBrowser
 
 
-def mock_table_click_callback(sender, app_data, user_data):
-    """Mock table click callback to test table name extraction."""
-    print(f"Button clicked: {sender}")
-    # Extract table name like the real callback does
-    table_name = sender.replace("table_", "")
-    print(f"Extracted table name: '{table_name}'")
-
-
 def test_table_name_extraction():
-    """Test table name extraction from button tags."""
+    """Test table name extraction from button tags."""    
     print("=== Table Name Extraction Test ===")
     
     # Test various table name scenarios

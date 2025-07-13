@@ -19,7 +19,6 @@ def test_auto_connect():
     app = ClickHouseClientApp()
     
     # Mock the DearPyGUI functions to avoid actual UI creation
-    import dearpygui.dearpygui as dpg_orig
 
     # Create mock functions to track what's happening
     status_messages = []

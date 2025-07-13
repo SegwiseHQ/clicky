@@ -22,7 +22,6 @@ from config import (
     MAIN_WINDOW_HEIGHT,
     MAIN_WINDOW_WIDTH,
     QUERY_INPUT_HEIGHT,
-    STATUS_WINDOW_HEIGHT,
     TABLES_PANEL_WIDTH,
 )
 from credentials_manager import CredentialsManager

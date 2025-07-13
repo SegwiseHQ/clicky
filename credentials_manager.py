@@ -183,10 +183,6 @@ class CredentialsManager:
         except Exception:
             return {}
 
-    def credentials_exist(self) -> bool:
-        """Check if any credentials exist."""
-        return len(self.get_credential_names()) > 0
-
     # Legacy methods for backward compatibility
     def load_credentials_legacy(self) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """

@@ -69,24 +69,6 @@ class FontManager:
             print("Using default system font")
             return False
 
-    @staticmethod
-    def setup_bold_font():
-        """Setup JetBrains Mono Bold font from bundled assets for headers."""
-        assets_path = FontManager.get_assets_path()
-        bundled_font_path = os.path.join(assets_path, "fonts", "JetBrainsMono-Bold.ttf")
-
-        if os.path.exists(bundled_font_path):
-            try:
-                print(
-                    f"Loading bundled JetBrains Mono Bold font from: {bundled_font_path}"
-                )
-                bold_font = add_font(bundled_font_path, 16)
-                return bold_font
-            except Exception as e:
-                print(f"Failed to load bundled bold font: {e}")
-
-        return None
-
 
 class UIHelpers:
     """Helper functions for UI operations."""
@@ -111,15 +93,6 @@ class UIHelpers:
                 return False
         except Exception as e:
             print(f"[DEBUG] Failed to configure item {tag}: {e}")
-            return False
-
-    @staticmethod
-    def safe_delete_item(tag: str, children_only: bool = False):
-        """Safely delete a UI item."""
-        try:
-            delete_item(tag, children_only=children_only)
-            return True
-        except:
             return False
 
     @staticmethod
@@ -163,11 +136,6 @@ def validate_connection_params(
         return False, f"Port must be a number, got: {port}"
 
     return True, ""
-
-
-def format_connection_string(host: str, port: str, database: str) -> str:
-    """Format a connection string for display."""
-    return f"{host}:{port}/{database}"
 
 
 class TableHelpers:
