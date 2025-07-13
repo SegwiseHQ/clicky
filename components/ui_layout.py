@@ -52,54 +52,71 @@ class UILayout:
                     )
 
             with group(horizontal=True):
-                # Left panel for tables - now fills full height to match right panels
-                with child_window(
-                    label=f"{icon_manager.get('table')} Database Tables",
-                    width=TABLES_PANEL_WIDTH,
-                    height=-1,
-                    tag="tables_panel",
-                    border=True,
-                ):
-                    if self.theme_manager:
-                        bind_item_theme(
-                            "tables_panel", self.theme_manager.get_theme("tables_panel")
-                        )
+                # Left panel container
+                with group(width=TABLES_PANEL_WIDTH):
+                    # Tables section with scroll - takes most of the space
+                    with child_window(
+                        label=f"{icon_manager.get('table')} Database Tables",
+                        width=TABLES_PANEL_WIDTH,
+                        height=-120,  # Leave space for status section at bottom
+                        tag="tables_panel",
+                        border=True,
+                    ):
+                        if self.theme_manager:
+                            bind_item_theme(
+                                "tables_panel",
+                                self.theme_manager.get_theme("tables_panel"),
+                            )
 
-                    add_text(
-                        "Database Tables",
-                        color=(220, 220, 220),
-                        tag="database_tables_header",
-                    )
-                    if self.theme_manager:
-                        bind_item_theme(
-                            "database_tables_header",
-                            self.theme_manager.get_theme("header_text"),
+                        add_text(
+                            "Database Tables",
+                            color=(220, 220, 220),
+                            tag="database_tables_header",
                         )
+                        if self.theme_manager:
+                            bind_item_theme(
+                                "database_tables_header",
+                                self.theme_manager.get_theme("header_text"),
+                            )
 
-                    # Add search bar for filtering table names
-                    add_input_text(
-                        tag="table_search",
-                        hint="Search tables...",
-                        callback=(
-                            self.table_browser_ui.filter_tables_callback
-                            if self.table_browser_ui
-                            else None
-                        ),
-                        width=-1,
-                    )
-                    if self.theme_manager:
-                        bind_item_theme(
-                            "table_search",
-                            self.theme_manager.get_theme("input_enhanced"),
+                        # Add search bar for filtering table names
+                        add_input_text(
+                            tag="table_search",
+                            hint="Search tables...",
+                            callback=(
+                                self.table_browser_ui.filter_tables_callback
+                                if self.table_browser_ui
+                                else None
+                            ),
+                            width=-1,
                         )
+                        if self.theme_manager:
+                            bind_item_theme(
+                                "table_search",
+                                self.theme_manager.get_theme("input_enhanced"),
+                            )
 
-                    # Add group for table list
-                    add_group(tag="tables_list")
-                    # We'll populate this with saved connections in show_saved_connections()
+                        # Add group for table list
+                        add_group(tag="tables_list")
+                        # We'll populate this with saved connections in show_saved_connections()
+
+                    # Status section fixed at bottom
+                    with child_window(
+                        label=f"{icon_manager.get('info')} Status",
+                        width=TABLES_PANEL_WIDTH,
+                        height=100,  # Fixed height for status
+                        tag="status_panel",
+                        border=True,
+                    ):
+                        if self.theme_manager:
+                            bind_item_theme(
+                                "status_panel",
+                                self.theme_manager.get_theme("status_window"),
+                            )
+                        self._setup_status_section()
 
                 # Right panel for query and results
                 with group(width=-1):
-                    self._setup_status_section()
                     self._setup_query_section()
                     self._setup_explorer_section()
 
@@ -111,18 +128,9 @@ class UILayout:
 
     def _setup_status_section(self):
         """Setup the status display section."""
-        with child_window(
-            label=f"{icon_manager.get('info')} Status",
-            height=STATUS_WINDOW_HEIGHT,
-            tag="status_window",
-        ):
-            if self.theme_manager:
-                bind_item_theme(
-                    "status_window", self.theme_manager.get_theme("status_window")
-                )
-            add_text("Status:", color=(240, 240, 240))
-            add_group(tag="status_text")
-            # Status will be set by StatusManager
+        add_text("Status:", color=(240, 240, 240))
+        add_group(tag="status_text")
+        # Status will be set by StatusManager
 
     def _setup_query_section(self):
         """Setup the query input and results section."""
