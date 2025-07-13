@@ -9,8 +9,6 @@ from config import (
     DEFAULT_LIMIT,
     MAX_CELL_LENGTH,
     MAX_ROWS_LIMIT,
-    ROW_DETAILS_PANEL_WIDTH,
-    TABLE_ROW_HEIGHT,
 )
 from database import DatabaseManager
 from utils import FontManager, TableHelpers, UIHelpers

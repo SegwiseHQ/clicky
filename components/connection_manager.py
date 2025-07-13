@@ -151,59 +151,6 @@ class ConnectionManager:
         except Exception as e:
             StatusManager.show_status(f"Error during disconnect: {str(e)}", error=True)
 
-    def find_credential_name_for_connection(self) -> str:
-        """Find the saved credential name that matches the current connection."""
-        if not self.db_manager.is_connected or not self.db_manager.connection_info:
-            return ""
-
-        # Get current connection info
-        current = self.db_manager.connection_info
-        current_host = current.get("host", "")
-        current_port = str(current.get("port", ""))
-        current_user = current.get("username", "")  # DatabaseManager uses "username"
-        current_db = current.get("database", "")
-
-        print(
-            f"[DEBUG] Current connection: host={current_host}, port={current_port}, user={current_user}, db={current_db}"
-        )
-
-        # Get all credential names
-        credential_names = self.credentials_manager.get_credential_names()
-        print(f"[DEBUG] Available credential names: {credential_names}")
-
-        # Check each saved credential for a match
-        matching_credentials = []
-
-        for name in credential_names:
-            success, cred, _ = self.credentials_manager.load_credentials(name)
-            if success:
-                saved_host = cred.get("host", "")
-                saved_port = str(cred.get("port", ""))
-                saved_user = cred.get("user", "")  # CredentialsManager uses "user"
-                saved_db = cred.get("database", "")
-
-                print(
-                    f"[DEBUG] Comparing with '{name}': host={saved_host}, port={saved_port}, user={saved_user}, db={saved_db}"
-                )
-
-                # Check if this credential matches our current connection
-                if (
-                    saved_host == current_host
-                    and saved_port == current_port
-                    and saved_user == current_user
-                    and saved_db == current_db
-                ):
-                    print(f"[DEBUG] Found matching credential: {name}")
-                    matching_credentials.append(name)
-
-        # If we found multiple matches, return the first one
-        if matching_credentials:
-            return matching_credentials[0]
-
-        print("[DEBUG] No matching credential found")
-        # If we get here, no matching credential was found
-        return ""
-
     def auto_load_and_connect(self):
         """Auto-load credentials without attempting connection on startup."""
         try:
