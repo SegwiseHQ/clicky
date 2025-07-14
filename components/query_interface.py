@@ -9,7 +9,6 @@ from typing import Callable, Optional
 
 from dearpygui.dearpygui import *
 
-from autocomplete_manager import AutocompleteManager
 from config import COLOR_ERROR, COLOR_SUCCESS
 from database import DatabaseManager
 from icon_manager import icon_manager
@@ -21,7 +20,6 @@ class QueryInterface:
     def __init__(self, db_manager: DatabaseManager, theme_manager=None):
         self.db_manager = db_manager
         self.theme_manager = theme_manager
-        self.autocomplete_manager = AutocompleteManager(db_manager)
         self.current_table: Optional[str] = None
         self.table_counter = 0
         self.status_callback: Optional[Callable[[str, bool], None]] = None
@@ -30,8 +28,6 @@ class QueryInterface:
         self.loading_animation_running = False
         self.last_query_results = None  # Store last query results for JSON export
         self.last_column_names = None  # Store column names for JSON export
-        # Autocomplete state
-        self.autocomplete_suggestions = []
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -185,9 +181,6 @@ class QueryInterface:
             if self.status_callback:
                 self.status_callback(f"Query failed: {str(e)}", True)
         finally:
-            # Hide autocomplete popup after query execution
-            self.hide_autocomplete_popup()
-
             # Final safety check - ensure loading is always cleared
             if self.loading_indicator:
                 try:
@@ -655,263 +648,3 @@ class QueryInterface:
             json_data.append(row_dict)
 
         return json_data
-
-    # Autocomplete functionality
-    def show_autocomplete_suggestions(self, query: str, cursor_pos: int):
-        """Show autocomplete suggestions in the embedded container."""
-        print(f"DEBUG: Database connected: {self.db_manager.is_connected}")
-
-        suggestions = self.autocomplete_manager.get_suggestions(query, cursor_pos)
-
-        if not suggestions:
-            self.hide_autocomplete_popup()
-            return
-
-        self.autocomplete_suggestions = suggestions
-
-        # Clear the autocomplete container and populate with suggestions
-        try:
-            # Check if autocomplete container exists
-            if not does_item_exist("autocomplete_container"):
-                return
-
-            # Clear existing content
-            if does_item_exist("autocomplete_placeholder"):
-                delete_item("autocomplete_placeholder")
-
-            # Clear any existing suggestion items
-            container_children = get_item_children("autocomplete_container", 1)
-            if container_children:
-                for child in container_children:
-                    if does_item_exist(child):
-                        delete_item(child)
-
-            # Add new suggestions to the container
-            with group(parent="autocomplete_container"):
-                add_text(
-                    f"Autocomplete ({len(suggestions)} suggestions):",
-                    color=(220, 220, 220),
-                )
-                add_separator()
-
-                for i, suggestion in enumerate(suggestions):
-                    color = (255, 255, 255, 255)  # Default white
-                    if suggestion["type"] == "table":
-                        color = (86, 156, 214, 255)  # Blue for tables
-                    elif suggestion["type"] == "info":
-                        color = (255, 165, 0, 255)  # Orange for info messages
-
-                    # Skip creating clickable buttons for info messages
-                    if suggestion["type"] == "info":
-                        add_text(f"  {suggestion['description']}", color=color)
-                        continue
-
-                    # Create a selectable item for each suggestion
-                    button_tag = f"suggestion_btn_{i}_{int(time.time()*1000)}"
-                    add_button(
-                        label=f"{suggestion['text']} - {suggestion['description']}",
-                        tag=button_tag,
-                        width=-1,
-                        height=25,
-                        user_data={
-                            "index": i,
-                            "suggestion": suggestion,
-                        },
-                    )
-
-                    # Set up callback
-                    configure_item(button_tag, callback=self.suggestion_button_callback)
-
-                    # Apply color to the button text
-                    if self.theme_manager:
-                        try:
-                            with theme() as btn_theme:
-                                with theme_component(mvButton):
-                                    add_theme_color(mvThemeCol_Text, color)
-                            bind_item_theme(button_tag, btn_theme)
-                        except:
-                            pass  # Fallback if theme fails
-
-            # Show the autocomplete container
-            show_item("autocomplete_container")
-            configure_item("autocomplete_container", show=True)
-
-        except Exception as e:
-            print(f"DEBUG: Error updating autocomplete container: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    def hide_autocomplete_popup(self):
-        """Hide the autocomplete suggestions container."""
-        try:
-            if does_item_exist("autocomplete_container"):
-                hide_item("autocomplete_container")
-                configure_item("autocomplete_container", show=False)
-        except Exception as e:
-            print(f"DEBUG: Error hiding autocomplete container: {e}")
-
-        self.autocomplete_suggestions = []
-
-    def apply_autocomplete_suggestion(self, suggestion):
-        """Apply the selected autocomplete suggestion to the query input."""
-        try:
-            current_query = get_value("query_input")
-            cursor_pos = len(current_query)  # Approximate cursor position
-
-            context = self.autocomplete_manager.get_cursor_context(
-                current_query, cursor_pos
-            )
-
-            # Replace the current word with the suggestion
-            if (
-                context
-                and context.get("word_start") is not None
-                and context.get("word_end") is not None
-            ):
-                # Apply the suggestion to replace the current word
-                new_query = (
-                    current_query[: context["word_start"]]
-                    + suggestion["text"]
-                    + current_query[context["word_end"] :]
-                )
-
-                # Calculate cursor position for the end of the inserted text
-
-                # Add space after tables for better SQL flow
-                if context["context_type"] == "table" and not new_query.endswith(" "):
-                    new_query += " "
-
-                # Apply the new text using a character-by-character simulation
-                self._apply_text_with_cursor_positioning(new_query)
-
-            else:
-                # Fallback: just append the suggestion with a space
-                if current_query and not current_query.endswith(" "):
-                    new_query = current_query + " " + suggestion["text"]
-                else:
-                    new_query = current_query + suggestion["text"]
-
-                # Add space after tables for better flow
-                if suggestion.get("type") == "table" and not new_query.endswith(" "):
-                    new_query += " "
-
-                # Apply the new text using the same technique
-                self._apply_text_with_cursor_positioning(new_query)
-            self.hide_autocomplete_popup()
-
-            # Simplified and more reliable focus restoration
-            import threading
-            import time
-
-            def restore_focus():
-                time.sleep(0.05)  # Slightly longer delay to ensure text is fully set
-                try:
-                    focus_item("query_input")
-
-                    # Trigger autocomplete to show next suggestions if applicable
-                    current_text = get_value("query_input")
-                    if current_text and current_text.strip():
-                        self.handle_query_input_callback("query_input", current_text)
-                except Exception as e:
-                    print(f"DEBUG: Error in focus restoration: {e}")
-
-            # Run focus restoration in background
-            focus_thread = threading.Thread(target=restore_focus)
-            focus_thread.daemon = True
-            focus_thread.start()
-
-        except Exception as e:
-            print(f"Error applying autocomplete suggestion: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    def suggestion_button_callback(self, sender, data):
-        """Handle clicking on autocomplete suggestion buttons."""
-        try:
-            # Get the suggestion data from user_data
-            user_data = get_item_user_data(sender)
-
-            if user_data and isinstance(user_data, dict) and "suggestion" in user_data:
-                suggestion = user_data["suggestion"]
-                self.apply_autocomplete_suggestion(suggestion)
-            elif user_data is not None and isinstance(user_data, int):
-                # Fallback for integer index
-                suggestion_index = user_data
-                if 0 <= suggestion_index < len(self.autocomplete_suggestions):
-                    suggestion = self.autocomplete_suggestions[suggestion_index]
-                    self.apply_autocomplete_suggestion(suggestion)
-        except Exception as e:
-            print(f"Error in suggestion button callback: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    def handle_query_input_callback(self, sender, data):
-        """Handle query input changes for autocomplete."""
-        try:
-            query = get_value("query_input")
-
-            # Show autocomplete for any non-empty query (removed minimum length requirement)
-            if query and len(query.strip()) > 0:  # Changed from > 2 to > 0
-                # Check if we just typed a trigger character or word
-                last_char = query[-1] if query else ""
-
-                # Trigger autocomplete on word characters, spaces, and some punctuation
-                should_trigger = last_char.isalnum() or last_char in [
-                    "_",
-                    " ",
-                ]  # Added space as trigger
-
-                if should_trigger:
-                    # Reduce delay for better responsiveness
-                    import threading
-                    import time
-
-                    def delayed_autocomplete():
-                        time.sleep(0.1)  # Reduced from 300ms to 100ms
-                        # Check if query hasn't changed (user stopped typing)
-                        current_query = get_value("query_input")
-                        if current_query == query:  # Query hasn't changed
-                            self.show_autocomplete_suggestions(query, len(query))
-
-                    autocomplete_thread = threading.Thread(target=delayed_autocomplete)
-                    autocomplete_thread.daemon = True
-                    autocomplete_thread.start()
-            else:
-                # Hide autocomplete if query is empty or too short
-                self.hide_autocomplete_popup()
-
-        except Exception as e:
-            print(f"Error in query input callback: {e}")
-
-    def setup_autocomplete_callbacks(self):
-        """Setup autocomplete callbacks for the query input."""
-        try:
-            # Add callback for text changes
-            configure_item("query_input", callback=self.handle_query_input_callback)
-
-        except Exception as e:
-            print(f"Error setting up autocomplete callbacks: {e}")
-
-    def _apply_text_with_cursor_positioning(self, new_text: str):
-        """Apply new text to query input with cursor positioning at the end."""
-        try:
-            # Clear the current text first
-            set_value("query_input", "")
-            focus_item("query_input")
-
-            # Give a very brief moment for the focus to take effect
-            import time
-
-            time.sleep(0.01)
-
-            # Now set the new text - since we cleared it first, cursor should end up at the end
-            set_value("query_input", new_text)
-            focus_item("query_input")
-
-        except Exception as e:
-            print(f"DEBUG: Error in _apply_text_with_cursor_positioning: {e}")
-            # Fallback to simple set_value
-            set_value("query_input", new_text)

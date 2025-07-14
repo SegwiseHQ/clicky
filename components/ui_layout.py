@@ -143,21 +143,6 @@ class UILayout:
                     "query_input", self.theme_manager.get_theme("input_enhanced")
                 )
 
-            # Autocomplete suggestions container (initially hidden)
-            with child_window(
-                tag="autocomplete_container",
-                width=-1,
-                height=200,
-                show=False,  # Initially hidden
-                border=True,
-                no_scrollbar=False,
-                horizontal_scrollbar=False,
-            ):
-                add_text(
-                    "Autocomplete suggestions will appear here",
-                    tag="autocomplete_placeholder",
-                )
-
             # Run Query button
             add_button(
                 label=f"{icon_manager.get('query')} Run Query", tag="run_query_button"
@@ -219,18 +204,7 @@ class UILayout:
                     callback=lambda s, d: None,  # Will be connected later
                 )
 
-            # Apply themes to input fields
-            if self.theme_manager:
-                bind_item_theme(
-                    "explorer_where",
-                    self.theme_manager.get_theme("input_enhanced"),
-                )
-                bind_item_theme(
-                    "explorer_limit",
-                    self.theme_manager.get_theme("input_enhanced"),
-                )
-
-            # Button controls row
+            # Button controls row (moved closer to reduce spacing)
             with table(header_row=False, tag="button_table"):
                 add_table_column(width_fixed=True, init_width_or_weight=150)
                 add_table_column(width_fixed=True, init_width_or_weight=150)
@@ -251,8 +225,16 @@ class UILayout:
                             height=35,
                         )
 
-            # Apply themes after the group is complete
+            # Apply themes to all fields at once
             if self.theme_manager:
+                bind_item_theme(
+                    "explorer_where",
+                    self.theme_manager.get_theme("input_enhanced"),
+                )
+                bind_item_theme(
+                    "explorer_limit",
+                    self.theme_manager.get_theme("input_enhanced"),
+                )
                 bind_item_theme(
                     "close_explorer_button",
                     self.theme_manager.get_theme("button_danger"),
@@ -261,8 +243,6 @@ class UILayout:
                     "explorer_toggle_details_button",
                     self.theme_manager.get_theme("button_primary"),
                 )
-
-            add_separator()
 
             # Data window with horizontal split - fills remaining vertical space
             with child_window(
@@ -307,9 +287,6 @@ class UILayout:
                 "save_json_button", callback=query_interface.save_as_json_callback
             )
 
-            # Setup autocomplete callbacks (for the input field)
-            query_interface.setup_autocomplete_callbacks()
-
     def connect_callbacks_to_data_explorer(self, data_explorer):
         """Connect the data explorer callbacks after creation."""
         if data_explorer:
@@ -323,9 +300,6 @@ class UILayout:
                 # Connect WHERE and limit input callbacks
                 configure_item(
                     "explorer_where", callback=data_explorer._on_where_change
-                )
-                configure_item(
-                    "explorer_limit", callback=data_explorer._on_limit_change
                 )
 
                 # Connect toggle details button
