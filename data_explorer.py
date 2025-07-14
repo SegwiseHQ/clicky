@@ -5,11 +5,7 @@ from typing import Dict, Optional, Set
 
 from dearpygui.dearpygui import *
 
-from config import (
-    DEFAULT_LIMIT,
-    MAX_CELL_LENGTH,
-    MAX_ROWS_LIMIT,
-)
+from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT
 from database import DatabaseManager
 from utils import FontManager, TableHelpers, UIHelpers
 
@@ -74,11 +70,6 @@ class DataExplorer:
         # Show explorer section
         configure_item("explorer_section", show=True)
 
-        # Update explorer title
-        configure_item(
-            "explorer_title", default_value=f"Data Explorer - {self.current_table}"
-        )
-
         # Setup filter controls
         self._setup_filters()
 
@@ -121,6 +112,17 @@ class DataExplorer:
         self.selected_row_data = None
         self.current_column_names = []
 
+        # Reset WHERE clause and limit fields
+        try:
+            configure_item("explorer_where", default_value="")
+        except:
+            pass  # Field might not exist yet
+
+        try:
+            configure_item("explorer_limit", default_value="100")
+        except:
+            pass  # Field might not exist yet
+
         # Hide explorer section
         configure_item("explorer_section", show=False)
 
@@ -129,35 +131,21 @@ class DataExplorer:
         configure_item("results_window", show=True)
 
     def _setup_filters(self):
-        """Setup WHERE and ORDER BY filter controls for the current table."""
-        # Clear existing filters
-        delete_item("explorer_filters", children_only=True)
+        """Setup WHERE filter control for the current table."""
+        # Set up callback for the WHERE input field to refresh data on Enter
+        try:
+            configure_item("explorer_where", callback=self._on_where_change)
+            configure_item("explorer_limit", callback=self._on_limit_change)
+        except Exception:
+            pass  # Input might not exist yet
 
-        # Add WHERE clause input with Apply button
-        add_text("WHERE clause (optional):", parent="explorer_filters")
-        with group(horizontal=True, parent="explorer_filters"):
-            add_input_text(
-                tag="explorer_where",
-                hint="e.g., column_name = 'value' AND other_column > 100",
-                width=-100,
-                height=60,
-                multiline=True,
-            )
-            add_button(label="Apply", callback=lambda: self.refresh_data(), width=80)
+    def _on_where_change(self, sender, app_data):
+        """Handle WHERE condition change - refresh data when Enter is pressed."""
+        self.refresh_data()
 
-        add_separator(parent="explorer_filters")
-
-        # Add ORDER BY clause input with Apply button
-        add_text("ORDER BY clause (optional):", parent="explorer_filters")
-        with group(horizontal=True, parent="explorer_filters"):
-            add_input_text(
-                tag="explorer_order_by",
-                hint="e.g., column_name DESC, other_column ASC",
-                width=-100,
-                height=40,
-                multiline=True,
-            )
-            add_button(label="Apply", callback=lambda: self.refresh_data(), width=80)
+    def _on_limit_change(self, sender, app_data):
+        """Handle limit change - refresh data when Enter is pressed."""
+        self.refresh_data()
 
     def refresh_data(self, status_callback=None):
         """Refresh data in the data explorer with current filters."""
@@ -178,14 +166,6 @@ class DataExplorer:
                     query += f" WHERE {where_clause.strip()}"
             except:
                 pass  # WHERE input doesn't exist yet or is empty
-
-            # Add ORDER BY clause if provided
-            try:
-                order_by_clause = get_value("explorer_order_by")
-                if order_by_clause and order_by_clause.strip():
-                    query += f" ORDER BY {order_by_clause.strip()}"
-            except:
-                pass  # ORDER BY input doesn't exist yet or is empty
 
             # Add limit
             try:
@@ -379,11 +359,11 @@ class DataExplorer:
         except:
             pass  # Filter input doesn't exist yet
 
-        # Clear ORDER BY filter
+        # Reset limit to default value of 100
         try:
-            configure_item("explorer_order_by", default_value="")
+            configure_item("explorer_limit", default_value="100")
         except:
-            pass  # Filter input doesn't exist yet
+            pass  # Limit input doesn't exist yet
 
         # Reset limit to default value of 100
         try:

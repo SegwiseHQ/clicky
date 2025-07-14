@@ -192,49 +192,74 @@ class UILayout:
     def _setup_explorer_section(self):
         """Setup the data explorer section."""
         with group(tag="explorer_section", show=False):
-            # Explorer header with close button
+            # Explorer header
             with group(horizontal=True):
                 add_text("", tag="explorer_title", color=(220, 220, 220))
                 if self.theme_manager:
                     bind_item_theme(
                         "explorer_title", self.theme_manager.get_theme("header_text")
                     )
-                add_spacer()  # Push the close button to the right
-                add_button(
-                    label="Close Explorer",
-                    tag="close_explorer_button",
-                    width=140,
-                    height=35,
-                )
-                if self.theme_manager:
-                    bind_item_theme(
-                        "close_explorer_button",
-                        self.theme_manager.get_theme("button_danger"),
-                    )
 
-            # Filter section
-            with collapsing_header(
-                label=f"{icon_manager.get('filter')} Filters", default_open=False
-            ):
-                add_text("Add filters for columns:")
-                add_group(tag="explorer_filters")
-
-                # Limit controls
-                with group(horizontal=True):
-                    add_text("Limit:")
-                    add_input_text(tag="explorer_limit", default_value="100", width=60)
-                    add_button(
-                        label="Apply", tag="explorer_apply_limit_button", width=60
-                    )
-
-                add_button(label="Clear Filters", tag="explorer_clear_filters_button")
-
-            # Toggle button row
+            # Simple WHERE filter section
             with group(horizontal=True):
-                add_button(
-                    label="Toggle Row Details",
-                    tag="explorer_toggle_details_button",
-                    width=140,
+                add_text("WHERE:")
+                add_input_text(
+                    tag="explorer_where",
+                    hint="Enter WHERE condition - Press Enter to apply",
+                    width=-150,
+                    on_enter=True,  # Only trigger callback on Enter key
+                    callback=lambda s, d: None,  # Will be connected later
+                )
+                add_text("  Limit:")
+                add_input_text(
+                    tag="explorer_limit",
+                    default_value="100",
+                    width=80,
+                    on_enter=True,  # Only trigger callback on Enter key
+                    callback=lambda s, d: None,  # Will be connected later
+                )
+
+            # Apply themes to input fields
+            if self.theme_manager:
+                bind_item_theme(
+                    "explorer_where",
+                    self.theme_manager.get_theme("input_enhanced"),
+                )
+                bind_item_theme(
+                    "explorer_limit",
+                    self.theme_manager.get_theme("input_enhanced"),
+                )
+
+            # Button controls row
+            with table(header_row=False, tag="button_table"):
+                add_table_column(width_fixed=True, init_width_or_weight=150)
+                add_table_column(width_fixed=True, init_width_or_weight=150)
+
+                with table_row():
+                    with table_cell():
+                        add_button(
+                            label="Close Explorer",
+                            tag="close_explorer_button",
+                            width=140,
+                            height=35,
+                        )
+                    with table_cell():
+                        add_button(
+                            label="Toggle Row Details",
+                            tag="explorer_toggle_details_button",
+                            width=140,
+                            height=35,
+                        )
+
+            # Apply themes after the group is complete
+            if self.theme_manager:
+                bind_item_theme(
+                    "close_explorer_button",
+                    self.theme_manager.get_theme("button_danger"),
+                )
+                bind_item_theme(
+                    "explorer_toggle_details_button",
+                    self.theme_manager.get_theme("button_primary"),
                 )
 
             add_separator()
@@ -295,16 +320,12 @@ class UILayout:
 
             # Connect other explorer callbacks
             try:
-                # Connect clear filters button
+                # Connect WHERE and limit input callbacks
                 configure_item(
-                    "explorer_clear_filters_button",
-                    callback=data_explorer.clear_filters,
+                    "explorer_where", callback=data_explorer._on_where_change
                 )
-
-                # Connect apply limit button
                 configure_item(
-                    "explorer_apply_limit_button",
-                    callback=lambda: data_explorer.refresh_data(),
+                    "explorer_limit", callback=data_explorer._on_limit_change
                 )
 
                 # Connect toggle details button
