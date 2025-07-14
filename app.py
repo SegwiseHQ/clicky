@@ -29,11 +29,7 @@ from data_explorer import DataExplorer
 from database import DatabaseManager
 from icon_manager import icon_manager
 from theme_manager import ThemeManager
-from utils import (
-    FontManager,
-    UIHelpers,
-    validate_connection_params,
-)
+from utils import FontManager, UIHelpers, validate_connection_params
 
 
 class ClickHouseClientApp:
@@ -125,9 +121,6 @@ class ClickHouseClientApp:
     def _handle_connect_success(self):
         """Handle additional tasks after successful connection."""
         try:
-            # Cache tables for autocomplete after successful connection
-            self.query_interface.autocomplete_manager.cache_tables()
-
             # Auto-save credentials on successful connection
             self.credentials_ui.save_credentials_callback(None, None)
 
@@ -142,9 +135,6 @@ class ClickHouseClientApp:
     def _handle_disconnect(self):
         """Handle additional tasks after disconnection."""
         try:
-            # Clear autocomplete cache
-            self.query_interface.autocomplete_manager.clear_cache()
-
             # Update UI
             self.table_browser.clear_tables()
             self.data_explorer.close_explorer()
