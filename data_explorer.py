@@ -21,6 +21,8 @@ class DataExplorer:
         self.table_theme = None
         self.selected_row_data = None  # Store selected row data for details panel
         self.current_column_names = []  # Store current column names
+        self.sort_column: Optional[str] = None  # Current sort column
+        self.sort_ascending: bool = True  # Sort direction
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -111,6 +113,8 @@ class DataExplorer:
         self.filters.clear()
         self.selected_row_data = None
         self.current_column_names = []
+        self.sort_column = None
+        self.sort_ascending = True
 
         # Reset WHERE clause and limit fields
         try:
@@ -147,6 +151,20 @@ class DataExplorer:
         """Handle limit change - refresh data when Enter is pressed."""
         self.refresh_data()
 
+    def _on_column_header_click(self, sender, app_data, user_data):
+        """Handle column header click for sorting."""
+        column_name = user_data
+
+        # Toggle sort direction if same column, otherwise set to ascending
+        if self.sort_column == column_name:
+            self.sort_ascending = not self.sort_ascending
+        else:
+            self.sort_column = column_name
+            self.sort_ascending = True
+
+        # Refresh data with new sort
+        self.refresh_data()
+
     def refresh_data(self, status_callback=None):
         """Refresh data in the data explorer with current filters."""
         if not self.db_manager.is_connected or not self.current_table:
@@ -166,6 +184,11 @@ class DataExplorer:
                     query += f" WHERE {where_clause.strip()}"
             except:
                 pass  # WHERE input doesn't exist yet or is empty
+
+            # Add ORDER BY clause if sorting is enabled
+            if self.sort_column:
+                sort_direction = "ASC" if self.sort_ascending else "DESC"
+                query += f" ORDER BY `{self.sort_column}` {sort_direction}"
 
             # Add limit
             try:
@@ -228,7 +251,7 @@ class DataExplorer:
                     borders_innerV=True,
                     borders_outerH=True,
                     borders_outerV=True,
-                    header_row=True,
+                    header_row=False,  # We'll create custom header with clickable buttons
                     scrollX=True,
                     scrollY=True,
                     freeze_rows=1,
@@ -261,15 +284,11 @@ class DataExplorer:
 
             column_tags = []
             for col in result.column_names:
-                # Create header with column name and type information
-                col_type = column_types.get(col, "Unknown")
-                header_label = f"{col_type}\n{col}"
                 # Use fixed pixel width for each column
                 column_tag = f"col_{table_tag}_{col}"
                 column_tags.append(column_tag)
                 add_table_column(
                     tag=column_tag,
-                    label=header_label,
                     parent=table_tag,
                     init_width_or_weight=200,  # Fixed width: 200px per column
                     width_stretch=False,  # Do not auto-stretch
@@ -294,6 +313,29 @@ class DataExplorer:
                         set_item_width(column_tag, 200)
                     except Exception:
                         pass
+
+            # Add custom header row with clickable buttons
+            with table_row(parent=table_tag):
+                for col in result.column_names:
+                    # Create header with column name, type information, and sort indicator
+                    col_type = column_types.get(col, "Unknown")
+
+                    # Add sort indicator
+                    sort_indicator = ""
+                    if self.sort_column == col:
+                        sort_indicator = " ^" if self.sort_ascending else " v"
+
+                    header_label = f"{col_type}\n{col}{sort_indicator}"
+
+                    # Add clickable button as header
+                    add_button(
+                        label=header_label,
+                        tag=f"header_{table_tag}_{col}",
+                        callback=self._on_column_header_click,
+                        user_data=col,
+                        width=-1,  # Full width of column
+                        height=50,  # Taller header
+                    )
 
             # Add rows with proper encoding handling and selectable cells with row selection functionality
             for row_idx, row in enumerate(result.result_rows):
@@ -370,6 +412,10 @@ class DataExplorer:
             configure_item("explorer_limit", default_value="100")
         except:
             pass  # Limit input doesn't exist yet
+
+        # Clear sorting
+        self.sort_column = None
+        self.sort_ascending = True
 
         # Clear row details
         self._clear_row_details()
