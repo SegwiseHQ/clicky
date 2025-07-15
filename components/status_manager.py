@@ -4,7 +4,7 @@ import time
 
 from dearpygui.dearpygui import *
 
-from config import COLOR_ERROR, COLOR_SUCCESS
+from config import COLOR_ERROR, COLOR_SUCCESS, TABLES_PANEL_WIDTH
 
 
 class StatusManager:
@@ -25,7 +25,11 @@ class StatusManager:
             # For errors, show in both text and copyable input
             error_text_tag = f"error_text_{time.time()}"
             add_text(
-                message, parent="status_text", color=COLOR_ERROR, tag=error_text_tag
+                message,
+                parent="status_text",
+                color=COLOR_ERROR,
+                tag=error_text_tag,
+                wrap=TABLES_PANEL_WIDTH - 20,
             )
             if StatusManager.theme_manager:
                 bind_item_theme(
@@ -43,7 +47,11 @@ class StatusManager:
         else:
             success_text_tag = f"success_text_{time.time()}"
             add_text(
-                message, parent="status_text", color=COLOR_SUCCESS, tag=success_text_tag
+                message,
+                parent="status_text",
+                color=COLOR_SUCCESS,
+                tag=success_text_tag,
+                wrap=TABLES_PANEL_WIDTH - 20,
             )
             if StatusManager.theme_manager:
                 bind_item_theme(
