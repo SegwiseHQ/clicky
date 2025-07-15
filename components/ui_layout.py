@@ -177,14 +177,6 @@ class UILayout:
     def _setup_explorer_section(self):
         """Setup the data explorer section."""
         with group(tag="explorer_section", show=False):
-            # Explorer header
-            with group(horizontal=True):
-                add_text("", tag="explorer_title", color=(220, 220, 220))
-                if self.theme_manager:
-                    bind_item_theme(
-                        "explorer_title", self.theme_manager.get_theme("header_text")
-                    )
-
             # Simple WHERE filter section
             with group(horizontal=True):
                 add_text("WHERE:")
@@ -219,7 +211,7 @@ class UILayout:
                         )
                     with table_cell():
                         add_button(
-                            label="Toggle Row Details",
+                            label="Toggle Row View",
                             tag="explorer_toggle_details_button",
                             width=140,
                             height=35,
