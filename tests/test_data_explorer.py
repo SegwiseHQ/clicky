@@ -2,7 +2,6 @@
 """Test data explorer selectable cells functionality."""
 
 import dearpygui.dearpygui as dpg
-from clickhouse_driver import Client
 
 from data_explorer import DataExplorer
 
