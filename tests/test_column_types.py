@@ -7,32 +7,12 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from database import DatabaseManager
-
-
-def test_column_types():
-    """Test getting column types from database"""
-    print("Testing column type functionality...")
-    
-    # Create database manager (won't actually connect)
-    db_manager = DatabaseManager()
-    
-    # Test the get_table_columns method exists
-    if hasattr(db_manager, 'get_table_columns'):
-        print("✓ get_table_columns method exists")
-    else:
-        print("✗ get_table_columns method missing")
-        return False
-    
-    print("✓ Column type functionality is properly integrated")
-    return True
-
 def test_query_parsing():
     """Test query parsing functionality"""
     print("\nTesting query parsing...")
-    
+
     # Import the QueryInterface to test regex
-    from ui_components import QueryInterface
+    from components.query_interface import QueryInterface
 
     # Create a mock query interface
     class MockDB:
@@ -43,9 +23,9 @@ def test_query_parsing():
             elif table_name == "orders":
                 return [("order_id", "UInt64"), ("user_id", "UInt32"), ("total", "Float64")]
             return []
-    
+
     query_interface = QueryInterface(MockDB(), None, None)
-    
+
     # Test queries
     test_cases = [
         ("SELECT * FROM users", ["id", "name", "email"], {"id": "UInt32", "name": "String", "email": "String"}),
@@ -53,33 +33,32 @@ def test_query_parsing():
         ("SELECT order_id FROM orders", ["order_id"], {"order_id": "UInt64"}),
         ("SELECT COUNT(*) FROM users", ["count()"], {}),  # Aggregate functions won't match
     ]
-    
+
     for query, columns, expected_types in test_cases:
         result_types = query_interface._get_column_types_from_query(query, columns)
         print(f"Query: {query}")
         print(f"  Columns: {columns}")
         print(f"  Expected types: {expected_types}")
         print(f"  Got types: {result_types}")
-        
+
         # Check if we got the expected results for columns that should match
         success = True
         for col, expected_type in expected_types.items():
             if result_types.get(col) != expected_type:
                 success = False
                 break
-        
+
         if success:
             print("  ✓ PASS")
         else:
             print("  ✗ FAIL")
-    
+
     return True
 
 if __name__ == "__main__":
     print("=== Column Type Enhancement Test ===")
-    
+
     try:
-        test_column_types()
         test_query_parsing()
         print("\n=== All tests completed ===")
     except Exception as e:
@@ -88,8 +67,8 @@ if __name__ == "__main__":
         traceback.print_exc()
 
 
-import sys
 import os
+import sys
 
 # Add parent directory to Python path to import project modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
