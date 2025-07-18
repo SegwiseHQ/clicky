@@ -14,7 +14,6 @@ from config import (
 )
 from database import DatabaseManager
 from icon_manager import icon_manager
-from utils import TableHelpers
 
 
 class TableBrowser:

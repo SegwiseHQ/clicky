@@ -1,11 +1,10 @@
 """Table browser UI component for ClickHouse Client."""
 
 import time
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Optional, Set
 
 from dearpygui.dearpygui import *
 
-from config import COLOR_ERROR, DOUBLE_CLICK_THRESHOLD
 from utils import UIHelpers
 
 

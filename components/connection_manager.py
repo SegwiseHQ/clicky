@@ -1,7 +1,6 @@
 """Connection management functionality for ClickHouse Client."""
 
 import traceback
-from typing import Optional
 
 from dearpygui.dearpygui import *
 

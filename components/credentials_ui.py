@@ -2,13 +2,7 @@
 
 from dearpygui.dearpygui import *
 
-from config import (
-    COLOR_ERROR,
-    DEFAULT_DATABASE,
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_USERNAME,
-)
+from config import DEFAULT_DATABASE, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_USERNAME
 from credentials_manager import CredentialsManager
 from ui_components import StatusManager
 from utils import UIHelpers

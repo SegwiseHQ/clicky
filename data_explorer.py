@@ -1,13 +1,12 @@
 """Data Explorer component for ClickHouse Client."""
 
 import time
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 from dearpygui.dearpygui import *
 
 from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT
 from database import DatabaseManager
-from utils import FontManager, TableHelpers, UIHelpers
 
 
 class DataExplorer:
