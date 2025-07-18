@@ -68,7 +68,10 @@ class ClickHouseClientApp:
 
         self.table_browser = TableBrowser(self.db_manager, self.theme_manager)
         self.table_browser_ui = TableBrowserUI(
-            self.db_manager, self.credentials_manager, self.theme_manager
+            self.db_manager,
+            self.credentials_manager,
+            self.theme_manager,
+            self.connection_manager,
         )
         self.query_interface = QueryInterface(self.db_manager, self.theme_manager)
         self.data_explorer = DataExplorer(self.db_manager, self.theme_manager)
