@@ -1,8 +1,5 @@
 """Main application class for ClickHouse Client."""
 
-import time
-import traceback
-
 from dearpygui.dearpygui import *
 
 from components import QueryInterface, StatusManager, TableBrowser
@@ -10,26 +7,13 @@ from components.connection_manager import ConnectionManager
 from components.credentials_ui import CredentialsUI
 from components.table_browser_ui import TableBrowserUI
 from components.ui_layout import UILayout
-from config import (
-    COLOR_CONNECTED,
-    COLOR_DISCONNECTED,
-    COLOR_ERROR,
-    COLOR_SUCCESS,
-    DEFAULT_DATABASE,
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_USERNAME,
-    MAIN_WINDOW_HEIGHT,
-    MAIN_WINDOW_WIDTH,
-    QUERY_INPUT_HEIGHT,
-    TABLES_PANEL_WIDTH,
-)
+from config import MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH
 from credentials_manager import CredentialsManager
 from data_explorer import DataExplorer
 from database import DatabaseManager
 from icon_manager import icon_manager
 from theme_manager import ThemeManager
-from utils import FontManager, UIHelpers, validate_connection_params
+from utils import UIHelpers
 
 
 class ClickHouseClientApp:

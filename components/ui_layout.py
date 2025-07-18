@@ -2,12 +2,7 @@
 
 from dearpygui.dearpygui import *
 
-from config import (
-    MAIN_WINDOW_HEIGHT,
-    MAIN_WINDOW_WIDTH,
-    QUERY_INPUT_HEIGHT,
-    TABLES_PANEL_WIDTH,
-)
+from config import QUERY_INPUT_HEIGHT, TABLES_PANEL_WIDTH
 from icon_manager import icon_manager
 from utils import FontManager
 

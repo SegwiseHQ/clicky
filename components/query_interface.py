@@ -9,9 +9,7 @@ from typing import Callable, Optional
 
 from dearpygui.dearpygui import *
 
-from config import COLOR_ERROR, COLOR_SUCCESS
 from database import DatabaseManager
-from icon_manager import icon_manager
 
 
 class QueryInterface:
