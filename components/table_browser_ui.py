@@ -12,11 +12,18 @@ from utils import UIHelpers
 class TableBrowserUI:
     """Manages table browsing and filtering UI functionality."""
 
-    def __init__(self, db_manager, credentials_manager, theme_manager=None):
+    def __init__(
+        self,
+        db_manager,
+        credentials_manager,
+        theme_manager=None,
+        connection_manager=None,
+    ):
         """Initialize table browser UI component."""
         self.db_manager = db_manager
         self.credentials_manager = credentials_manager
         self.theme_manager = theme_manager
+        self.connection_manager = connection_manager
 
         # Track connection expansion state (initialized as collapsed)
         self.connections_expanded: Set[str] = set()
@@ -381,8 +388,14 @@ class TableBrowserUI:
             # For actual connection, we need to trigger the connection callback
             # This will be handled by the main app
             if hasattr(self, "connection_callback"):
-                # Store loaded credentials for connection
+                # Store loaded credentials for connection in both places
                 self.stored_credentials = credentials
+
+                # IMPORTANT: Update the connection manager's stored credentials too
+                # so it uses the correct credentials when connecting
+                if self.connection_manager:
+                    self.connection_manager.stored_credentials = credentials
+
                 self.connection_callback(None, None)
 
                 # After connecting successfully, make sure the connection is expanded
