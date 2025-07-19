@@ -99,9 +99,9 @@ class TableBrowser:
                 self.status_callback(
                     f"Failed to load columns for {table_name}: {str(e)}", True
                 )
-            self.table_columns[table_name] = (
-                []
-            )  # Cache empty result to avoid repeated failures
+            self.table_columns[
+                table_name
+            ] = []  # Cache empty result to avoid repeated failures
 
     def _rebuild_tables_list_preserve_scroll(self):
         """Rebuild the tables list while preserving scroll position."""

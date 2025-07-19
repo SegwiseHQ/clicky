@@ -5,7 +5,7 @@ from .status_manager import StatusManager
 from .table_browser import TableBrowser
 
 __all__ = [
-    'QueryInterface', 
-    'StatusManager',
-    'TableBrowser',
+    "QueryInterface",
+    "StatusManager",
+    "TableBrowser",
 ]
