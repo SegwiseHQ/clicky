@@ -48,9 +48,38 @@ class UILayout:
             with group(horizontal=True):
                 # Left panel container
                 with group(width=TABLES_PANEL_WIDTH):
-                    # Tables section with scroll - takes most of the space
+                    # Header and search bar (fixed at top)
+                    add_text(
+                        "Database Tables",
+                        color=(220, 220, 220),
+                        tag="database_tables_header",
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "database_tables_header",
+                            self.theme_manager.get_theme("header_text"),
+                        )
+
+                    # Add search bar for filtering table names (fixed at top)
+                    add_input_text(
+                        tag="table_search",
+                        hint="Search tables...",
+                        callback=(
+                            self.table_browser_ui.filter_tables_callback
+                            if self.table_browser_ui
+                            else None
+                        ),
+                        width=TABLES_PANEL_WIDTH - 20,  # Account for padding
+                    )
+                    if self.theme_manager:
+                        bind_item_theme(
+                            "table_search",
+                            self.theme_manager.get_theme("input_enhanced"),
+                        )
+
+                    # Tables section with scroll - takes remaining space
                     with child_window(
-                        label=f"{icon_manager.get('table')} Database Tables",
+                        label="",  # No label since header is outside
                         width=TABLES_PANEL_WIDTH,
                         height=-120,  # Leave space for status section at bottom
                         tag="tables_panel",
@@ -60,34 +89,6 @@ class UILayout:
                             bind_item_theme(
                                 "tables_panel",
                                 self.theme_manager.get_theme("tables_panel"),
-                            )
-
-                        add_text(
-                            "Database Tables",
-                            color=(220, 220, 220),
-                            tag="database_tables_header",
-                        )
-                        if self.theme_manager:
-                            bind_item_theme(
-                                "database_tables_header",
-                                self.theme_manager.get_theme("header_text"),
-                            )
-
-                        # Add search bar for filtering table names
-                        add_input_text(
-                            tag="table_search",
-                            hint="Search tables...",
-                            callback=(
-                                self.table_browser_ui.filter_tables_callback
-                                if self.table_browser_ui
-                                else None
-                            ),
-                            width=-1,
-                        )
-                        if self.theme_manager:
-                            bind_item_theme(
-                                "table_search",
-                                self.theme_manager.get_theme("input_enhanced"),
                             )
 
                         # Add group for table list
