@@ -62,7 +62,7 @@ class DatabaseManager:
         except Exception as e:
             self.client = None
             self.is_connected = False
-            error_msg = f"Connection failed:\n"
+            error_msg = "Connection failed:\n"
             error_msg += f"Error type: {type(e).__name__}\n"
             error_msg += f"Error message: {str(e)}\n"
             error_msg += f"Details:\n{traceback.format_exc()}"

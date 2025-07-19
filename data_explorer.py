@@ -466,7 +466,7 @@ class DataExplorer:
         try:
             # Extract data from user_data
             row_idx = user_data["row_idx"]
-            col_idx = user_data["col_idx"]
+            user_data["col_idx"]
             cell_value = user_data["cell_value"]
             row_data = user_data["row_data"]
 

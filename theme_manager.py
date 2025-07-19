@@ -339,7 +339,7 @@ class ThemeManager:
     def create_connection_indicator_theme(self, connected: bool):
         """Create a dynamic theme for connection indicator."""
         theme_name = (
-            f'connection_indicator_{"connected" if connected else "disconnected"}'
+            f"connection_indicator_{'connected' if connected else 'disconnected'}"
         )
 
         if theme_name not in self.themes:
