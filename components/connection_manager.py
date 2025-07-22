@@ -7,9 +7,12 @@ from dearpygui.dearpygui import *
 from config import (
     COLOR_ERROR,
     COLOR_SUCCESS,
+    DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DATABASE,
     DEFAULT_HOST,
     DEFAULT_PORT,
+    DEFAULT_QUERY_RETRIES,
+    DEFAULT_SEND_RECEIVE_TIMEOUT,
     DEFAULT_USERNAME,
 )
 from credentials_manager import CredentialsManager
@@ -72,9 +75,16 @@ class ConnectionManager:
 
             print("[DEBUG] Connection parameters validated successfully")
 
-            # Attempt connection
+            # Attempt connection with timeout settings
             success, message = self.db_manager.connect(
-                host, int(port), username, password, database
+                host,
+                int(port),
+                username,
+                password,
+                database,
+                connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+                send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
+                query_retries=DEFAULT_QUERY_RETRIES,
             )
             print(
                 f"[DEBUG] Connection attempt result: success={success}, message={message}"
