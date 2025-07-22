@@ -15,7 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Mock all the dependencies before importing the module
 sys.modules["clickhouse_connect"] = MagicMock()
-sys.modules["config"] = MagicMock()
+config_mock = MagicMock()
+config_mock.DEFAULT_CONNECT_TIMEOUT = 10
+config_mock.DEFAULT_SEND_RECEIVE_TIMEOUT = 30
+config_mock.DEFAULT_QUERY_RETRIES = 2
+sys.modules["config"] = config_mock
 
 # Now import the database module
 import database
@@ -69,12 +73,53 @@ class TestDatabaseManager(unittest.TestCase):
         # Verify client creation parameters
         mock_clickhouse_connect.get_client.assert_called_once_with(
             host="localhost",
+            port=8123,
             username="default",
             password="password",
             database="default",
             secure=True,
+            connect_timeout=10,
+            send_receive_timeout=30,
+            query_retries=2,
         )
         mock_client.query.assert_called_once_with("SELECT 1")
+
+    @patch("database.clickhouse_connect")
+    def test_connect_with_custom_timeouts(self, mock_clickhouse_connect):
+        """Test successful database connection with custom timeout and retry values."""
+        # Arrange
+        mock_client = Mock()
+        mock_clickhouse_connect.get_client.return_value = mock_client
+        mock_client.query.return_value = None  # Successful test query
+
+        # Act
+        success, message = self.db_manager.connect(
+            host="localhost",
+            port=8123,
+            username="default",
+            password="password",
+            database="default",
+            connect_timeout=5,
+            send_receive_timeout=60,
+            query_retries=1,
+        )
+
+        # Assert
+        self.assertTrue(success)
+        self.assertEqual(message, "Connected successfully to localhost:8123")
+
+        # Verify client creation parameters with custom timeouts
+        mock_clickhouse_connect.get_client.assert_called_once_with(
+            host="localhost",
+            port=8123,
+            username="default",
+            password="password",
+            database="default",
+            secure=True,
+            connect_timeout=5,
+            send_receive_timeout=60,
+            query_retries=1,
+        )
 
     @patch("database.clickhouse_connect")
     def test_connect_missing_host(self, mock_clickhouse_connect):

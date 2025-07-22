@@ -18,6 +18,11 @@ DEFAULT_LIMIT = 100
 DOUBLE_CLICK_THRESHOLD = 0.5
 MAX_CELL_LENGTH = 300
 
+# Connection timeout settings (in seconds)
+DEFAULT_CONNECT_TIMEOUT = 5  # HTTP connection timeout
+DEFAULT_SEND_RECEIVE_TIMEOUT = 30  # Send/receive timeout
+DEFAULT_QUERY_RETRIES = 2  # Maximum number of retries for requests
+
 # UI constants
 MAIN_WINDOW_WIDTH = 1200
 MAIN_WINDOW_HEIGHT = 768

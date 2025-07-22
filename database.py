@@ -5,7 +5,12 @@ from typing import Optional
 
 import clickhouse_connect
 
-from config import cipher_suite
+from config import (
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_QUERY_RETRIES,
+    DEFAULT_SEND_RECEIVE_TIMEOUT,
+    cipher_suite,
+)
 
 
 class DatabaseManager:
@@ -17,10 +22,28 @@ class DatabaseManager:
         self.connection_info = {}
 
     def connect(
-        self, host: str, port: int, username: str, password: str, database: str
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        database: str,
+        connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
+        send_receive_timeout: int = DEFAULT_SEND_RECEIVE_TIMEOUT,
+        query_retries: int = DEFAULT_QUERY_RETRIES,
     ) -> tuple[bool, str]:
         """
         Connect to ClickHouse database.
+
+        Args:
+            host: Database host
+            port: Database port
+            username: Database username
+            password: Database password
+            database: Database name
+            connect_timeout: HTTP connection timeout in seconds
+            send_receive_timeout: Send/receive timeout in seconds
+            query_retries: Maximum number of retries for requests
 
         Returns:
             tuple: (success: bool, message: str)
@@ -39,10 +62,14 @@ class DatabaseManager:
             # Create client
             self.client = clickhouse_connect.get_client(
                 host=host,
+                port=port,
                 username=username,
                 password=password,
                 database=database,
                 secure=True,
+                connect_timeout=connect_timeout,
+                send_receive_timeout=send_receive_timeout,
+                query_retries=query_retries,
             )
 
             # Test connection
