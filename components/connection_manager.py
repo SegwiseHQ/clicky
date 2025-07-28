@@ -38,6 +38,56 @@ class ConnectionManager:
         # Optional callbacks for additional functionality
         self.on_connect_success = None  # Called after successful connection
 
+    def get_connection_parameters(self):
+        """Get connection parameters, prioritizing form values over stored credentials."""
+        print("[DEBUG] Attempting to get connection parameters")
+
+        # Try to get values from form first
+        host = UIHelpers.safe_get_value("host_input", None)
+        port = UIHelpers.safe_get_value("port_input", None)
+        username = UIHelpers.safe_get_value("username_input", None)
+        password = UIHelpers.safe_get_value("password_input", None)
+        database = UIHelpers.safe_get_value("database_input", None)
+
+        # Check if we have valid form values (not None and not empty for required fields)
+        form_has_values = (
+            host is not None
+            and host.strip() != ""
+            and username is not None
+            and username.strip() != ""
+        )
+
+        if form_has_values:
+            print("[DEBUG] Using form values")
+            # Use form values, with defaults for empty optional fields
+            return {
+                "host": host or DEFAULT_HOST,
+                "port": port if port is not None else DEFAULT_PORT,
+                "username": username or DEFAULT_USERNAME,
+                "password": password or "",
+                "database": database or DEFAULT_DATABASE,
+            }
+        elif self.stored_credentials:
+            print("[DEBUG] Form values not available, using stored credentials")
+            return {
+                "host": self.stored_credentials.get("host", DEFAULT_HOST),
+                "port": self.stored_credentials.get("port", DEFAULT_PORT),
+                "username": self.stored_credentials.get("user", DEFAULT_USERNAME),
+                "password": self.stored_credentials.get("password", ""),
+                "database": self.stored_credentials.get("database", DEFAULT_DATABASE),
+            }
+        else:
+            print(
+                "[DEBUG] No form values or stored credentials available, using defaults"
+            )
+            return {
+                "host": DEFAULT_HOST,
+                "port": DEFAULT_PORT,
+                "username": DEFAULT_USERNAME,
+                "password": "",
+                "database": DEFAULT_DATABASE,
+            }
+
     def connect_callback(self, sender, data):
         """Handle database connection."""
         # Disable connect button and show connecting status
@@ -45,21 +95,14 @@ class ConnectionManager:
         StatusManager.show_status("Connecting... Please wait", error=False)
 
         try:
-            # Get connection parameters - use stored credentials if available, otherwise form values
-            if self.stored_credentials:
-                print("[DEBUG] Using stored credentials for connection")
-                host = self.stored_credentials.get("host", DEFAULT_HOST)
-                port = self.stored_credentials.get("port", DEFAULT_PORT)
-                username = self.stored_credentials.get("user", DEFAULT_USERNAME)
-                password = self.stored_credentials.get("password", "")
-                database = self.stored_credentials.get("database", DEFAULT_DATABASE)
-            else:
-                print("[DEBUG] Using form values for connection")
-                host = UIHelpers.safe_get_value("host_input", DEFAULT_HOST)
-                port = UIHelpers.safe_get_value("port_input", DEFAULT_PORT)
-                username = UIHelpers.safe_get_value("username_input", DEFAULT_USERNAME)
-                password = UIHelpers.safe_get_value("password_input", "")
-                database = UIHelpers.safe_get_value("database_input", DEFAULT_DATABASE)
+            # Get connection parameters - prioritize form values over stored credentials
+            # This allows users to modify credentials and use the updated values
+            params = self.get_connection_parameters()
+            host = params["host"]
+            port = params["port"]
+            username = params["username"]
+            password = params["password"]
+            database = params["database"]
 
             print(
                 f"[DEBUG] Connection parameters: host={host}, port={port}, username={username}, database={database}"
@@ -137,21 +180,14 @@ class ConnectionManager:
         StatusManager.show_status("Testing credentials... Please wait", error=False)
 
         try:
-            # Get connection parameters - use stored credentials if available, otherwise form values
-            if self.stored_credentials:
-                print("[DEBUG] Using stored credentials for credential test")
-                host = self.stored_credentials.get("host", DEFAULT_HOST)
-                port = self.stored_credentials.get("port", DEFAULT_PORT)
-                username = self.stored_credentials.get("user", DEFAULT_USERNAME)
-                password = self.stored_credentials.get("password", "")
-                database = self.stored_credentials.get("database", DEFAULT_DATABASE)
-            else:
-                print("[DEBUG] Using form values for credential test")
-                host = UIHelpers.safe_get_value("host_input", DEFAULT_HOST)
-                port = UIHelpers.safe_get_value("port_input", DEFAULT_PORT)
-                username = UIHelpers.safe_get_value("username_input", DEFAULT_USERNAME)
-                password = UIHelpers.safe_get_value("password_input", "")
-                database = UIHelpers.safe_get_value("database_input", DEFAULT_DATABASE)
+            # Get connection parameters - prioritize form values over stored credentials
+            # This allows users to modify credentials and use the updated values
+            params = self.get_connection_parameters()
+            host = params["host"]
+            port = params["port"]
+            username = params["username"]
+            password = params["password"]
+            database = params["database"]
 
             print(
                 f"[DEBUG] Testing credentials: host={host}, port={port}, username={username}, database={database}"
