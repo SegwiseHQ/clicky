@@ -16,9 +16,7 @@ class UILayout:
         self.table_browser_ui = table_browser_ui
         self.data_explorer = data_explorer
 
-    def setup_main_ui(
-        self, show_connection_settings_callback, connect_callback, disconnect_callback
-    ):
+    def setup_main_ui(self, show_connection_settings_callback, connect_callback):
         """Setup the main user interface."""
         # Main window setup
         with window(
@@ -39,10 +37,6 @@ class UILayout:
                     add_menu_item(
                         label="Connect",
                         callback=connect_callback,
-                    )
-                    add_menu_item(
-                        label="Disconnect",
-                        callback=disconnect_callback,
                     )
 
             with group(horizontal=True):

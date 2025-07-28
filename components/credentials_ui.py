@@ -287,36 +287,18 @@ class CredentialsUI:
             # Connection status and control buttons
             with group(horizontal=True):
                 add_button(
-                    label="Connect",
+                    label="Test Connection",
                     callback=(
-                        self.connection_manager.connect_callback
+                        self.connection_manager.test_credentials_callback
                         if self.connection_manager
                         else None
                     ),
                     tag="connect_button",
-                    width=100,
+                    width=130,
                 )
                 if self.theme_manager:
                     bind_item_theme(
                         "connect_button", self.theme_manager.get_theme("button_primary")
-                    )
-
-                add_spacing(count=5)
-
-                add_button(
-                    label="Disconnect",
-                    callback=(
-                        self.connection_manager.disconnect_callback
-                        if self.connection_manager
-                        else None
-                    ),
-                    tag="disconnect_button",
-                    width=120,
-                )
-                if self.theme_manager:
-                    bind_item_theme(
-                        "disconnect_button",
-                        self.theme_manager.get_theme("button_secondary"),
                     )
 
             # Auto-refresh credentials when modal opens
