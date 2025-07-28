@@ -37,7 +37,6 @@ class ConnectionManager:
 
         # Optional callbacks for additional functionality
         self.on_connect_success = None  # Called after successful connection
-        self.on_disconnect = None  # Called after disconnection
 
     def connect_callback(self, sender, data):
         """Handle database connection."""
@@ -106,7 +105,6 @@ class ConnectionManager:
 
                 # Update button states
                 UIHelpers.safe_configure_item("connect_button", enabled=True)
-                UIHelpers.safe_configure_item("disconnect_button", enabled=True)
 
                 # Call success callback if provided
                 if self.on_connect_success:
@@ -132,11 +130,78 @@ class ConnectionManager:
             # Re-enable connect button
             UIHelpers.safe_configure_item("connect_button", enabled=True)
 
-    def disconnect_callback(self, sender, data):
-        """Handle database disconnection."""
-        try:
-            message = self.db_manager.disconnect()
+    def test_credentials_callback(self, sender, data):
+        """Test database credentials without establishing a persistent connection."""
+        # Disable connect button and show testing status
+        UIHelpers.safe_configure_item("connect_button", enabled=False)
+        StatusManager.show_status("Testing credentials... Please wait", error=False)
 
+        try:
+            # Get connection parameters - use stored credentials if available, otherwise form values
+            if self.stored_credentials:
+                print("[DEBUG] Using stored credentials for credential test")
+                host = self.stored_credentials.get("host", DEFAULT_HOST)
+                port = self.stored_credentials.get("port", DEFAULT_PORT)
+                username = self.stored_credentials.get("user", DEFAULT_USERNAME)
+                password = self.stored_credentials.get("password", "")
+                database = self.stored_credentials.get("database", DEFAULT_DATABASE)
+            else:
+                print("[DEBUG] Using form values for credential test")
+                host = UIHelpers.safe_get_value("host_input", DEFAULT_HOST)
+                port = UIHelpers.safe_get_value("port_input", DEFAULT_PORT)
+                username = UIHelpers.safe_get_value("username_input", DEFAULT_USERNAME)
+                password = UIHelpers.safe_get_value("password_input", "")
+                database = UIHelpers.safe_get_value("database_input", DEFAULT_DATABASE)
+
+            print(
+                f"[DEBUG] Testing credentials: host={host}, port={port}, username={username}, database={database}"
+            )
+
+            # Validate parameters
+            is_valid, error_msg = validate_connection_params(
+                host, port, username, database
+            )
+            if not is_valid:
+                raise ValueError(error_msg)
+
+            print("[DEBUG] Connection parameters validated successfully")
+
+            # Test credentials with timeout settings
+            success, message = self.db_manager.test_credentials(
+                host,
+                int(port),
+                username,
+                password,
+                database,
+                connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+                send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
+                query_retries=DEFAULT_QUERY_RETRIES,
+            )
+            print(
+                f"[DEBUG] Credential test result: success={success}, message={message}"
+            )
+
+            if success:
+                StatusManager.show_status(f"✓ {message}", error=False)
+                # Update connection indicator to show test success (green)
+                UIHelpers.safe_configure_item(
+                    "connection_indicator", color=COLOR_SUCCESS
+                )
+                if self.theme_manager:
+                    connected_theme = (
+                        self.theme_manager.create_connection_indicator_theme(True)
+                    )
+                    UIHelpers.safe_bind_item_theme(
+                        "connection_indicator", connected_theme
+                    )
+            else:
+                raise Exception(message)
+
+        except Exception as e:
+            error_msg = f"Credential test failed:\n{str(e)}"
+            if hasattr(e, "__traceback__"):
+                error_msg += f"\nDetails:\n{traceback.format_exc()}"
+            StatusManager.show_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             # Apply disconnected theme to connection indicator
             if self.theme_manager:
@@ -146,19 +211,9 @@ class ConnectionManager:
                 UIHelpers.safe_bind_item_theme(
                     "connection_indicator", disconnected_theme
                 )
-
-            StatusManager.show_status(message)
-
-            # Update button states
+        finally:
+            # Re-enable connect button
             UIHelpers.safe_configure_item("connect_button", enabled=True)
-            UIHelpers.safe_configure_item("disconnect_button", enabled=False)
-
-            # Call disconnect callback if provided
-            if self.on_disconnect:
-                self.on_disconnect()
-
-        except Exception as e:
-            StatusManager.show_status(f"Error during disconnect: {str(e)}", error=True)
 
     def auto_load_and_connect(self):
         """Auto-load credentials without attempting connection on startup."""

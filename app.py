@@ -67,7 +67,6 @@ class ClickHouseClientApp:
 
         # Set up callbacks for connection manager
         self.connection_manager.on_connect_success = self._handle_connect_success
-        self.connection_manager.on_disconnect = self._handle_disconnect
 
         # Initialize stored credentials for auto-connect
         self.stored_credentials = None
@@ -95,7 +94,6 @@ class ClickHouseClientApp:
         self.ui_layout.setup_main_ui(
             show_connection_settings_callback=self.credentials_ui.show_connection_settings_modal,
             connect_callback=self.connection_manager.connect_callback,
-            disconnect_callback=self.connection_manager.disconnect_callback,
         )
 
         # Connect callbacks after UI is created
@@ -118,22 +116,6 @@ class ClickHouseClientApp:
 
         except Exception as e:
             print(f"[DEBUG] Error in connect success handler: {str(e)}")
-
-    def _handle_disconnect(self):
-        """Handle additional tasks after disconnection."""
-        try:
-            # Update UI
-            self.table_browser.clear_tables()
-            self.data_explorer.close_explorer()
-
-            # Clear connection state in table browser UI
-            self.table_browser_ui.clear_connection_state()
-
-            # Refresh connection list in the left panel
-            self.table_browser_ui.show_saved_connections()
-
-        except Exception as e:
-            print(f"[DEBUG] Error in disconnect handler: {str(e)}")
 
     def _sync_stored_credentials(self):
         """Sync stored credentials between app and connection manager."""

@@ -95,6 +95,72 @@ class DatabaseManager:
             error_msg += f"Details:\n{traceback.format_exc()}"
             return False, error_msg
 
+    def test_credentials(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        database: str,
+        connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
+        send_receive_timeout: int = DEFAULT_SEND_RECEIVE_TIMEOUT,
+        query_retries: int = DEFAULT_QUERY_RETRIES,
+    ) -> tuple[bool, str]:
+        """
+        Test connection credentials without storing the connection.
+
+        Args:
+            host: Database host
+            port: Database port
+            username: Database username
+            password: Database password
+            database: Database name
+            connect_timeout: HTTP connection timeout in seconds
+            send_receive_timeout: Send/receive timeout in seconds
+            query_retries: Maximum number of retries for requests
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            # Validate inputs
+            if not all([host, str(port), username, database]):
+                return False, "All fields except password must be filled"
+
+            # Validate port
+            try:
+                port = int(port)
+            except ValueError:
+                return False, f"Port must be a number, got: {port}"
+
+            # Create temporary client for testing
+            test_client = clickhouse_connect.get_client(
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+                database=database,
+                secure=True,
+                connect_timeout=connect_timeout,
+                send_receive_timeout=send_receive_timeout,
+                query_retries=query_retries,
+            )
+
+            # Test connection
+            test_client.query("SELECT 1")
+
+            # Close test client (don't store it)
+            test_client = None
+
+            return True, f"Credentials are valid for {host}:{port}"
+
+        except Exception as e:
+            error_msg = "Credential test failed:\n"
+            error_msg += f"Error type: {type(e).__name__}\n"
+            error_msg += f"Error message: {str(e)}\n"
+            error_msg += f"Details:\n{traceback.format_exc()}"
+            return False, error_msg
+
     def disconnect(self) -> str:
         """
         Disconnect from database.
