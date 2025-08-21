@@ -173,15 +173,7 @@ class UILayout:
                 add_input_text(
                     tag="explorer_where",
                     hint="Enter WHERE condition - Press Enter to apply",
-                    width=-150,
-                    on_enter=True,  # Only trigger callback on Enter key
-                    callback=lambda s, d: None,  # Will be connected later
-                )
-                add_text("  Limit:")
-                add_input_text(
-                    tag="explorer_limit",
-                    default_value="100",
-                    width=80,
+                    width=-1,
                     on_enter=True,  # Only trigger callback on Enter key
                     callback=lambda s, d: None,  # Will be connected later
                 )
@@ -211,10 +203,6 @@ class UILayout:
             if self.theme_manager:
                 bind_item_theme(
                     "explorer_where",
-                    self.theme_manager.get_theme("input_enhanced"),
-                )
-                bind_item_theme(
-                    "explorer_limit",
                     self.theme_manager.get_theme("input_enhanced"),
                 )
                 bind_item_theme(

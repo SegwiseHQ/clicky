@@ -115,14 +115,9 @@ class DataExplorer:
         self.sort_column = None
         self.sort_ascending = True
 
-        # Reset WHERE clause and limit fields
+        # Reset WHERE clause field
         try:
             configure_item("explorer_where", default_value="")
-        except:
-            pass  # Field might not exist yet
-
-        try:
-            configure_item("explorer_limit", default_value="100")
         except:
             pass  # Field might not exist yet
 
@@ -138,16 +133,11 @@ class DataExplorer:
         # Set up callback for the WHERE input field to refresh data on Enter
         try:
             configure_item("explorer_where", callback=self._on_where_change)
-            configure_item("explorer_limit", callback=self._on_limit_change)
         except Exception:
             pass  # Input might not exist yet
 
     def _on_where_change(self, sender, app_data):
         """Handle WHERE condition change - refresh data when Enter is pressed."""
-        self.refresh_data()
-
-    def _on_limit_change(self, sender, app_data):
-        """Handle limit change - refresh data when Enter is pressed."""
         self.refresh_data()
 
     def _on_column_header_click(self, sender, app_data, user_data):
@@ -189,21 +179,8 @@ class DataExplorer:
                 sort_direction = "ASC" if self.sort_ascending else "DESC"
                 query += f" ORDER BY `{self.sort_column}` {sort_direction}"
 
-            # Add limit
-            try:
-                limit_value = get_value("explorer_limit")
-                if limit_value and limit_value.strip():
-                    limit = int(limit_value)
-                    if limit > MAX_ROWS_LIMIT:  # Prevent loading too much data
-                        limit = MAX_ROWS_LIMIT
-                        if status_callback:
-                            status_callback(
-                                f"Limit capped at {MAX_ROWS_LIMIT} rows for performance",
-                                False,
-                            )
-                    query += f" LIMIT {limit}"
-            except:
-                query += f" LIMIT {DEFAULT_LIMIT}"  # Default limit
+            # Add default limit
+            query += f" LIMIT {DEFAULT_LIMIT}"
 
             if status_callback:
                 status_callback(f"Executing query: {query}")
@@ -399,18 +376,6 @@ class DataExplorer:
             configure_item("explorer_where", default_value="")
         except:
             pass  # Filter input doesn't exist yet
-
-        # Reset limit to default value of 100
-        try:
-            configure_item("explorer_limit", default_value="100")
-        except:
-            pass  # Limit input doesn't exist yet
-
-        # Reset limit to default value of 100
-        try:
-            configure_item("explorer_limit", default_value="100")
-        except:
-            pass  # Limit input doesn't exist yet
 
         # Clear sorting
         self.sort_column = None
