@@ -7,6 +7,7 @@ from dearpygui.dearpygui import *
 
 from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_ROWS_LIMIT
 from database import DatabaseManager
+from query_executor import QueryExecutor, QueryResult, QueryStatus
 
 
 class DataExplorer:
@@ -22,6 +23,10 @@ class DataExplorer:
         self.current_column_names = []  # Store current column names
         self.sort_column: Optional[str] = None  # Current sort column
         self.sort_ascending: bool = True  # Sort direction
+        self.query_executor = QueryExecutor()  # Thread-safe query executor
+        # UI update data for thread-safe updates
+        self._pending_ui_update = None
+        self._last_status_callback = None
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -159,6 +164,12 @@ class DataExplorer:
         if not self.db_manager.is_connected or not self.current_table:
             return
 
+        # Check if a query is already running
+        if self.query_executor.is_query_running():
+            if status_callback:
+                status_callback("A query is already running. Please wait...", True)
+            return
+
         # Store status callback for use in copy function
         self._last_status_callback = status_callback
 
@@ -185,9 +196,62 @@ class DataExplorer:
             if status_callback:
                 status_callback(f"Executing query: {query}")
 
-            # Execute query
-            result = self.db_manager.execute_query(query)
+            # Define the query function to run in background thread
+            def execute_query():
+                return self.db_manager.execute_query(query)
 
+            # Define the completion callback (runs in background thread)
+            def on_query_complete(result: QueryResult):
+                # Store result data for UI update on main thread
+                self._pending_ui_update = result
+                # Schedule UI update on next frame (main thread)
+                try:
+                    set_frame_callback(frame=get_frame_count() + 1, callback=self._process_ui_update)
+                except Exception as e:
+                    print(f"Error scheduling frame callback: {e}")
+
+            # Execute query asynchronously
+            success = self.query_executor.execute_async(
+                query_func=execute_query,
+                on_complete=on_query_complete,
+            )
+
+            if not success:
+                if status_callback:
+                    status_callback("Failed to start data refresh", True)
+
+        except Exception as e:
+            self._handle_data_refresh_error(str(e), status_callback)
+
+    def _process_ui_update(self):
+        """Process UI updates on the main thread (called via frame callback)."""
+        try:
+            result = self._pending_ui_update
+            status_callback = self._last_status_callback
+            
+            if result is None:
+                return
+            
+            # Clear pending update
+            self._pending_ui_update = None
+            
+            # Process based on status
+            try:
+                if result.status == QueryStatus.COMPLETED:
+                    self._handle_data_refresh_success(result.result, status_callback)
+                elif result.status == QueryStatus.FAILED:
+                    self._handle_data_refresh_error(result.error, status_callback)
+                elif result.status == QueryStatus.CANCELLED:
+                    if status_callback:
+                        status_callback("Data refresh was cancelled", False)
+            except Exception as e:
+                self._handle_data_refresh_error(str(e), status_callback)
+        except Exception as e:
+            print(f"Error in _process_ui_update: {e}")
+
+    def _handle_data_refresh_success(self, result, status_callback=None):
+        """Handle successful data refresh."""
+        try:
             # Debug: Show column info
             if status_callback:
                 status_callback(
@@ -301,7 +365,7 @@ class DataExplorer:
                     if self.sort_column == col:
                         sort_indicator = " ^" if self.sort_ascending else " v"
 
-                    header_label = f"{col_type}\n{col}{sort_indicator}"
+                    header_label = f"{col_type}\\n{col}{sort_indicator}"
 
                     # Add clickable button as header
                     add_button(
@@ -358,16 +422,20 @@ class DataExplorer:
                 )
 
         except Exception as e:
-            # Clear existing data
-            delete_item("explorer_main_table", children_only=True)
-            add_text(
-                f"Error loading data: {str(e)}",
-                parent="explorer_main_table",
-                color=(255, 0, 0),
-            )
-            self._clear_row_details()
-            if status_callback:
-                status_callback(f"Explorer error: {str(e)}", True)
+            self._handle_data_refresh_error(str(e), status_callback)
+
+    def _handle_data_refresh_error(self, error_message, status_callback=None):
+        """Handle data refresh error."""
+        # Clear existing data
+        delete_item("explorer_main_table", children_only=True)
+        add_text(
+            f"Error loading data: {error_message}",
+            parent="explorer_main_table",
+            color=(255, 0, 0),
+        )
+        self._clear_row_details()
+        if status_callback:
+            status_callback(f"Explorer error: {error_message}", True)
 
     def clear_filters(self):
         """Clear all filters in data explorer."""

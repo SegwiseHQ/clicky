@@ -10,6 +10,7 @@ from typing import Callable, Optional
 from dearpygui.dearpygui import *
 
 from database import DatabaseManager
+from query_executor import QueryExecutor, QueryResult, QueryStatus
 
 
 class QueryInterface:
@@ -26,6 +27,10 @@ class QueryInterface:
         self.loading_animation_running = False
         self.last_query_results = None  # Store last query results for JSON export
         self.last_column_names = None  # Store column names for JSON export
+        self.query_executor = QueryExecutor()  # Thread-safe query executor
+        # UI update data for thread-safe updates
+        self._pending_ui_update = None
+        self._ui_update_query = None
         self._setup_table_theme()
 
     def _setup_table_theme(self):
@@ -61,6 +66,12 @@ class QueryInterface:
                 self.status_callback("Query is empty", True)
             return
 
+        # Check if a query is already running
+        if self.query_executor.is_query_running():
+            if self.status_callback:
+                self.status_callback("A query is already running. Please wait...", True)
+            return
+
         # Add default LIMIT if not present
         original_query = query
         query = self._add_default_limit(query)
@@ -73,14 +84,78 @@ class QueryInterface:
         # Show loading animation
         self._show_loading()
 
-        try:
-            # Execute query
-            result = self.db_manager.execute_query(query)
+        # Define the query function to run in background thread
+        def execute_query():
+            return self.db_manager.execute_query(query)
 
+        # Define the completion callback (runs in background thread)
+        def on_query_complete(result: QueryResult):
+            # Store result data for UI update on main thread
+            self._pending_ui_update = result
+            self._ui_update_query = query
+            # Schedule UI update on next frame (main thread)
+            try:
+                set_frame_callback(frame=get_frame_count() + 1, callback=self._process_ui_update)
+            except Exception as e:
+                print(f"Error scheduling frame callback: {e}")
+
+        # Define progress callback
+        def on_progress(message: str):
+            # Progress updates are safe as they only update text
+            try:
+                self._update_loading_message(message)
+            except Exception as e:
+                print(f"Error updating progress: {e}")
+
+        # Execute query asynchronously
+        success = self.query_executor.execute_async(
+            query_func=execute_query,
+            on_complete=on_query_complete,
+            on_progress=on_progress,
+        )
+
+        if not success:
+            self._hide_loading()
+            if self.status_callback:
+                self.status_callback("Failed to start query execution", True)
+
+    def _process_ui_update(self):
+        """Process UI updates on the main thread (called via frame callback)."""
+        try:
+            result = self._pending_ui_update
+            query = self._ui_update_query
+            
+            if result is None:
+                return
+            
+            # Clear pending update
+            self._pending_ui_update = None
+            self._ui_update_query = None
+            
+            # Process based on status
+            try:
+                if result.status == QueryStatus.COMPLETED:
+                    self._handle_query_success(result.result, query)
+                elif result.status == QueryStatus.FAILED:
+                    self._handle_query_error(result.error)
+                elif result.status == QueryStatus.CANCELLED:
+                    self._handle_query_cancelled()
+            except Exception as e:
+                self._handle_query_error(str(e))
+            finally:
+                # Ensure loading is always cleared
+                self._hide_loading()
+        except Exception as e:
+            print(f"Error in _process_ui_update: {e}")
+            self._hide_loading()
+
+    def _handle_query_success(self, result, query):
+        """Handle successful query execution."""
+        try:
             # Update loading message for result processing
             self._update_loading_message("Processing results...")
 
-            # Always clear previous results first (loading already cleared them)
+            # Always clear previous results first
             if self.current_table:
                 delete_item(self.current_table)
                 self.current_table = None
@@ -170,23 +245,25 @@ class QueryInterface:
                 )
 
         except Exception as e:
-            # Hide loading animation on error
-            self._hide_loading()
-            # Clear previous results and hide save button
-            self.last_query_results = None
-            self.last_column_names = None
-            self._hide_save_json_button()
-            if self.status_callback:
-                self.status_callback(f"Query failed: {str(e)}", True)
-        finally:
-            # Final safety check - ensure loading is always cleared
-            if self.loading_indicator:
-                try:
-                    self._hide_loading()
-                except:
-                    # Force reset if hiding fails
-                    self.loading_indicator = None
-                    self.loading_animation_running = False
+            self._handle_query_error(str(e))
+
+    def _handle_query_error(self, error_message):
+        """Handle query execution error."""
+        # Hide loading animation on error
+        self._hide_loading()
+        # Clear previous results and hide save button
+        self.last_query_results = None
+        self.last_column_names = None
+        self._hide_save_json_button()
+        if self.status_callback:
+            self.status_callback(f"Query failed: {error_message}", True)
+
+    def _handle_query_cancelled(self):
+        """Handle query cancellation."""
+        # Hide loading animation
+        self._hide_loading()
+        if self.status_callback:
+            self.status_callback("Query was cancelled", False)
 
     def _setup_results_table(self, columns, query=None):
         """Setup the results table with the given columns."""
