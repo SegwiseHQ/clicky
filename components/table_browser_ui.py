@@ -17,12 +17,14 @@ class TableBrowserUI:
         credentials_manager,
         theme_manager=None,
         connection_manager=None,
+        async_worker=None,
     ):
         """Initialize table browser UI component."""
         self.db_manager = db_manager
         self.credentials_manager = credentials_manager
         self.theme_manager = theme_manager
         self.connection_manager = connection_manager
+        self.async_worker = async_worker
 
         # Track connection expansion state (initialized as collapsed)
         self.connections_expanded: Set[str] = set()
@@ -33,93 +35,115 @@ class TableBrowserUI:
         # Single-click callback for explorer opening
         self.double_click_callback: Optional[Callable[[str], None]] = None
 
+        # Sequence number to discard stale async table-list results
+        self._tables_seq = 0
+
     def set_double_click_callback(self, callback: Callable[[str], None]):
         """Set callback for table single-click events to open explorer."""
         self.double_click_callback = callback
 
     def filter_tables_callback(self, sender, app_data):
-        """Filter tables in the left panel based on the search query."""
-        # If this was triggered by search input (not programmatic call)
-        # get current scroll position only when it's a user-initiated search
+        """Filter tables in the left panel based on the search query (non-blocking)."""
         preserve_scroll = sender is not None
+        scroll_y = 0
         if preserve_scroll:
             try:
                 scroll_y = get_y_scroll("tables_panel")
             except:
-                scroll_y = 0
+                pass
 
-        search_query = app_data.strip().lower()
+        search_query = (app_data or "").strip().lower()
         delete_item("tables_list", children_only=True)
 
         if not self.db_manager.is_connected:
-            # If not connected, show all saved connections
             self.show_saved_connections()
             return
 
-        # Get connection name for the parent node
         connection_name = self._get_connection_display_name()
-
-        # Check if tables should be visible based on expand/collapse state
         is_expanded = "current" in self.connections_expanded
 
-        # If connection is collapsed, simply show all saved connections
         if not is_expanded:
             self.show_saved_connections()
             return
 
-        # Get all table names and filter them
-        all_tables = self.db_manager.get_tables()
+        # Show a loading placeholder while fetching tables in background
+        add_text("  Loading tables...", parent="tables_list", color=(100, 150, 255))
+
+        # Bump sequence so a stale async result from a previous call is ignored
+        self._tables_seq += 1
+        seq = self._tables_seq
+
+        if self.async_worker:
+            self.async_worker.run_async(
+                task=lambda: self.db_manager.get_tables(),
+                on_done=lambda tables: self._finish_filter_tables(
+                    tables, seq, search_query, connection_name, preserve_scroll, scroll_y
+                ),
+                on_error=lambda e: self._on_get_tables_error(e, seq),
+            )
+        else:
+            # Synchronous fallback
+            all_tables = self.db_manager.get_tables()
+            self._finish_filter_tables(
+                all_tables, seq, search_query, connection_name, preserve_scroll, scroll_y
+            )
+
+    def _finish_filter_tables(
+        self, all_tables, seq, search_query, connection_name, preserve_scroll, scroll_y
+    ):
+        """Build the table list UI on the main thread after tables are fetched."""
+        # Discard stale results
+        if seq != self._tables_seq:
+            return
+
+        # Guard against late arrival after disconnect
+        if not self.db_manager.is_connected or "current" not in self.connections_expanded:
+            self.show_saved_connections()
+            return
+
+        delete_item("tables_list", children_only=True)
+
         filtered_tables = [
             table for table in all_tables if search_query in table.lower()
         ]
 
-        # Get the appropriate visual indicator for expanded/collapsed state
-        expand_icon = "[-]" if is_expanded else "[+]"
-
-        # Add connection name as parent with clickable button and indicator
+        # Add connection header button
         connection_button = f"connection_header_{int(time.time() * 1000)}"
         add_button(
-            label=f"{expand_icon} {connection_name}",
+            label=f"[-] {connection_name}",
             parent="tables_list",
             callback=self.toggle_connection_callback,
             width=-1,
             height=30,
             tag=connection_button,
         )
-
-        # Apply the table_button theme to the connection button
         if self.theme_manager:
             bind_item_theme(
                 connection_button, self.theme_manager.get_theme("selected_table_button")
             )
 
-        # Show tables if we have any matching the filter
         if not filtered_tables:
-            # Display message when no tables match search criteria
             add_text("  No tables found", parent="tables_list", color=(255, 0, 0))
         else:
-            # Add filtered tables as children with indentation
             for table in filtered_tables:
                 table_button_tag = f"table_button_{table}"
                 context_menu_tag = f"context_menu_{table}"
 
-                # Clean up existing items with same tags to avoid conflicts
                 try:
                     if does_item_exist(table_button_tag):
                         delete_item(table_button_tag)
                     if does_item_exist(context_menu_tag):
                         delete_item(context_menu_tag)
                 except:
-                    pass  # Ignore errors if items don't exist
+                    pass
 
                 add_button(
-                    label=f"  {table}",  # Indent to show hierarchy
+                    label=f"  {table}",
                     parent="tables_list",
                     callback=self.select_table_callback,
                     tag=table_button_tag,
                 )
 
-                # Add right-click context menu for copying table name
                 with popup(
                     parent=table_button_tag,
                     mousebutton=1,
@@ -131,40 +155,33 @@ class TableBrowserUI:
                         user_data=table,
                     )
 
-                # Apply appropriate theme based on selection state
                 if table == self.selected_table:
-                    # Apply selected table theme
                     if self.theme_manager:
                         bind_item_theme(
                             table_button_tag,
                             self.theme_manager.get_theme("selected_table_button"),
                         )
                 else:
-                    # Apply regular table button theme
                     if self.theme_manager:
                         bind_item_theme(
                             table_button_tag,
                             self.theme_manager.get_theme("table_button"),
                         )
 
-        # Only show other connections section if there are tables displayed
         if filtered_tables:
-            # Add a separator before showing other connections
             add_separator(parent="tables_list")
             add_text("Other Connections:", parent="tables_list", color=(220, 220, 220))
 
-            # Show other available connections below the table list
             credential_names = self.credentials_manager.get_credential_names()
             current_connection_name = self._find_credential_name_for_connection()
 
-            # Filter out the current connection from the list
             other_connections = [
                 name for name in credential_names if name != current_connection_name
             ]
 
             if other_connections:
                 for name in other_connections:
-                    connection_button = f"connection_{name}_{int(time.time() * 1000)}"
+                    btn_tag = f"connection_{name}_{int(time.time() * 1000)}"
                     add_button(
                         label=f"{name}",
                         parent="tables_list",
@@ -172,11 +189,11 @@ class TableBrowserUI:
                         user_data=name,
                         width=-1,
                         height=30,
-                        tag=connection_button,
+                        tag=btn_tag,
                     )
                     if self.theme_manager:
                         bind_item_theme(
-                            connection_button,
+                            btn_tag,
                             self.theme_manager.get_theme("table_button"),
                         )
             else:
@@ -186,36 +203,39 @@ class TableBrowserUI:
                     color=(128, 128, 128),
                 )
 
-        # If this was a search triggered by user input, restore the scroll position
         if preserve_scroll:
             try:
                 set_y_scroll("tables_panel", scroll_y)
             except:
                 pass
 
+    def _on_get_tables_error(self, e: Exception, seq: int):
+        """Called on main thread when get_tables raises an exception."""
+        if seq != self._tables_seq:
+            return
+        delete_item("tables_list", children_only=True)
+        add_text(
+            f"  Error loading tables: {str(e)}", parent="tables_list", color=(255, 0, 0)
+        )
+
     def select_table_callback(self, sender, app_data):
         """Handle table selection and single-click explorer opening."""
-        # Extract table name from sender tag
         table_name = sender.replace("table_button_", "")
 
-        # Update selected table for visual highlighting
+        # Swap button themes in-place — no re-fetch, no scroll jump
+        if self.theme_manager:
+            # Deselect the previously selected table button
+            if self.selected_table:
+                prev_tag = f"table_button_{self.selected_table}"
+                if does_item_exist(prev_tag):
+                    bind_item_theme(prev_tag, self.theme_manager.get_theme("table_button"))
+
+            # Highlight the newly selected table button
+            new_tag = f"table_button_{table_name}"
+            if does_item_exist(new_tag):
+                bind_item_theme(new_tag, self.theme_manager.get_theme("selected_table_button"))
+
         self.selected_table = table_name
-
-        # Get current scroll position before refreshing display
-        try:
-            scroll_y = get_y_scroll("tables_panel")
-        except:
-            scroll_y = 0
-
-        # Refresh the display to update themes
-        current_search = UIHelpers.safe_get_value("table_search", "")
-        self.filter_tables_callback(None, current_search)
-
-        # Restore scroll position after refresh
-        try:
-            set_y_scroll("tables_panel", scroll_y)
-        except:
-            pass
 
         # Open explorer on single-click
         if self.double_click_callback:
@@ -395,14 +415,20 @@ class TableBrowserUI:
                 if self.connection_manager:
                     self.connection_manager.stored_credentials = credentials
 
-                self.connection_callback(None, None)
-
-                # After connecting successfully, make sure the connection is expanded
+                # Expand the connection node immediately so that when on_connect_success
+                # triggers filter_tables_callback, the expanded state is already set.
                 self.connections_expanded.add("current")
 
-                # Refresh the table list to show the tables
-                current_search = UIHelpers.safe_get_value("table_search", "")
-                self.filter_tables_callback(None, current_search)
+                # Show a connecting placeholder in the tables list
+                delete_item("tables_list", children_only=True)
+                add_text(
+                    f"  Connecting to {connection_name}...",
+                    parent="tables_list",
+                    color=(100, 150, 255),
+                )
+
+                # Kick off async connection — on_connect_success will refresh the table list
+                self.connection_callback(None, None)
 
         except Exception as e:
             error_msg = f"Failed to connect to {connection_name}: {str(e)}"
