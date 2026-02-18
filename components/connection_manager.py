@@ -29,10 +29,12 @@ class ConnectionManager:
         db_manager: DatabaseManager,
         credentials_manager: CredentialsManager,
         theme_manager=None,
+        async_worker=None,
     ):
         self.db_manager = db_manager
         self.credentials_manager = credentials_manager
         self.theme_manager = theme_manager
+        self.async_worker = async_worker
         self.stored_credentials = None
 
         # Optional callbacks for additional functionality
@@ -89,14 +91,11 @@ class ConnectionManager:
             }
 
     def connect_callback(self, sender, data):
-        """Handle database connection."""
-        # Disable connect button and show connecting status
+        """Handle database connection (non-blocking)."""
         UIHelpers.safe_configure_item("connect_button", enabled=False)
         StatusManager.show_status("Connecting... Please wait", error=False)
 
         try:
-            # Get connection parameters - prioritize form values over stored credentials
-            # This allows users to modify credentials and use the updated values
             params = self.get_connection_parameters()
             host = params["host"]
             port = params["port"]
@@ -108,7 +107,6 @@ class ConnectionManager:
                 f"[DEBUG] Connection parameters: host={host}, port={port}, username={username}, database={database}"
             )
 
-            # Validate parameters
             is_valid, error_msg = validate_connection_params(
                 host, port, username, database
             )
@@ -117,71 +115,91 @@ class ConnectionManager:
 
             print("[DEBUG] Connection parameters validated successfully")
 
-            # Attempt connection with timeout settings
+        except Exception as e:
+            # Validation failed on main thread — report immediately
+            error_msg = f"Connection failed:\n{str(e)}"
+            StatusManager.show_status(error_msg, error=True)
+            UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
+            if self.theme_manager:
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(False),
+                )
+            UIHelpers.safe_configure_item("connect_button", enabled=True)
+            return
+
+        port = int(port)
+
+        if self.async_worker:
+            self.async_worker.run_async(
+                task=lambda: self.db_manager.connect(
+                    host,
+                    port,
+                    username,
+                    password,
+                    database,
+                    connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+                    send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
+                    query_retries=DEFAULT_QUERY_RETRIES,
+                ),
+                on_done=self._on_connect_done,
+                on_error=self._on_connect_error,
+            )
+        else:
+            # Synchronous fallback
             success, message = self.db_manager.connect(
-                host,
-                int(port),
-                username,
-                password,
-                database,
+                host, port, username, password, database,
                 connect_timeout=DEFAULT_CONNECT_TIMEOUT,
                 send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
                 query_retries=DEFAULT_QUERY_RETRIES,
             )
-            print(
-                f"[DEBUG] Connection attempt result: success={success}, message={message}"
-            )
+            self._on_connect_done((success, message))
 
-            if success:
-                StatusManager.show_status(message)
-                UIHelpers.safe_configure_item(
-                    "connection_indicator", color=COLOR_SUCCESS
+    def _on_connect_done(self, result):
+        """Called on main thread when connection attempt finishes."""
+        success, message = result
+        UIHelpers.safe_configure_item("connect_button", enabled=True)
+
+        print(f"[DEBUG] Connection attempt result: success={success}, message={message}")
+
+        if success:
+            StatusManager.show_status(message)
+            UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
+            if self.theme_manager:
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(True),
                 )
-                # Apply connected theme to connection indicator
-                if self.theme_manager:
-                    connected_theme = (
-                        self.theme_manager.create_connection_indicator_theme(True)
-                    )
-                    UIHelpers.safe_bind_item_theme(
-                        "connection_indicator", connected_theme
-                    )
-
-                # Update button states
-                UIHelpers.safe_configure_item("connect_button", enabled=True)
-
-                # Call success callback if provided
-                if self.on_connect_success:
-                    self.on_connect_success()
-            else:
-                raise Exception(message)
-
-        except Exception as e:
-            error_msg = f"Connection failed:\n{str(e)}"
-            if hasattr(e, "__traceback__"):
-                error_msg += f"\nDetails:\n{traceback.format_exc()}"
+            if self.on_connect_success:
+                self.on_connect_success()
+        else:
+            error_msg = f"Connection failed:\n{message}"
             StatusManager.show_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
-            # Apply disconnected theme to connection indicator
             if self.theme_manager:
-                disconnected_theme = (
-                    self.theme_manager.create_connection_indicator_theme(False)
-                )
                 UIHelpers.safe_bind_item_theme(
-                    "connection_indicator", disconnected_theme
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(False),
                 )
-        finally:
-            # Re-enable connect button
-            UIHelpers.safe_configure_item("connect_button", enabled=True)
+
+    def _on_connect_error(self, e: Exception):
+        """Called on main thread when connection raises an unexpected exception."""
+        UIHelpers.safe_configure_item("connect_button", enabled=True)
+        error_msg = f"Connection failed:\n{str(e)}\nDetails:\n{traceback.format_exc()}"
+        StatusManager.show_status(error_msg, error=True)
+        UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
+        if self.theme_manager:
+            UIHelpers.safe_bind_item_theme(
+                "connection_indicator",
+                self.theme_manager.create_connection_indicator_theme(False),
+            )
 
     def test_credentials_callback(self, sender, data):
-        """Test database credentials without establishing a persistent connection."""
-        # Disable connect button and show testing status
+        """Test database credentials without establishing a persistent connection (non-blocking)."""
         UIHelpers.safe_configure_item("connect_button", enabled=False)
         StatusManager.show_status("Testing credentials... Please wait", error=False)
 
         try:
-            # Get connection parameters - prioritize form values over stored credentials
-            # This allows users to modify credentials and use the updated values
             params = self.get_connection_parameters()
             host = params["host"]
             port = params["port"]
@@ -193,7 +211,6 @@ class ConnectionManager:
                 f"[DEBUG] Testing credentials: host={host}, port={port}, username={username}, database={database}"
             )
 
-            # Validate parameters
             is_valid, error_msg = validate_connection_params(
                 host, port, username, database
             )
@@ -202,54 +219,80 @@ class ConnectionManager:
 
             print("[DEBUG] Connection parameters validated successfully")
 
-            # Test credentials with timeout settings
+        except Exception as e:
+            error_msg = f"Credential test failed:\n{str(e)}"
+            StatusManager.show_status(error_msg, error=True)
+            UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
+            if self.theme_manager:
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(False),
+                )
+            UIHelpers.safe_configure_item("connect_button", enabled=True)
+            return
+
+        port = int(port)
+
+        if self.async_worker:
+            self.async_worker.run_async(
+                task=lambda: self.db_manager.test_credentials(
+                    host,
+                    port,
+                    username,
+                    password,
+                    database,
+                    connect_timeout=DEFAULT_CONNECT_TIMEOUT,
+                    send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
+                    query_retries=DEFAULT_QUERY_RETRIES,
+                ),
+                on_done=self._on_test_done,
+                on_error=self._on_test_error,
+            )
+        else:
             success, message = self.db_manager.test_credentials(
-                host,
-                int(port),
-                username,
-                password,
-                database,
+                host, port, username, password, database,
                 connect_timeout=DEFAULT_CONNECT_TIMEOUT,
                 send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
                 query_retries=DEFAULT_QUERY_RETRIES,
             )
-            print(
-                f"[DEBUG] Credential test result: success={success}, message={message}"
-            )
+            self._on_test_done((success, message))
 
-            if success:
-                StatusManager.show_status(f"✓ {message}", error=False)
-                # Update connection indicator to show test success (green)
-                UIHelpers.safe_configure_item(
-                    "connection_indicator", color=COLOR_SUCCESS
+    def _on_test_done(self, result):
+        """Called on main thread when credential test finishes."""
+        success, message = result
+        UIHelpers.safe_configure_item("connect_button", enabled=True)
+
+        print(f"[DEBUG] Credential test result: success={success}, message={message}")
+
+        if success:
+            StatusManager.show_status(f"✓ {message}", error=False)
+            UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
+            if self.theme_manager:
+                UIHelpers.safe_bind_item_theme(
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(True),
                 )
-                if self.theme_manager:
-                    connected_theme = (
-                        self.theme_manager.create_connection_indicator_theme(True)
-                    )
-                    UIHelpers.safe_bind_item_theme(
-                        "connection_indicator", connected_theme
-                    )
-            else:
-                raise Exception(message)
-
-        except Exception as e:
-            error_msg = f"Credential test failed:\n{str(e)}"
-            if hasattr(e, "__traceback__"):
-                error_msg += f"\nDetails:\n{traceback.format_exc()}"
+        else:
+            error_msg = f"Credential test failed:\n{message}"
             StatusManager.show_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
-            # Apply disconnected theme to connection indicator
             if self.theme_manager:
-                disconnected_theme = (
-                    self.theme_manager.create_connection_indicator_theme(False)
-                )
                 UIHelpers.safe_bind_item_theme(
-                    "connection_indicator", disconnected_theme
+                    "connection_indicator",
+                    self.theme_manager.create_connection_indicator_theme(False),
                 )
-        finally:
-            # Re-enable connect button
-            UIHelpers.safe_configure_item("connect_button", enabled=True)
+
+    def _on_test_error(self, e: Exception):
+        """Called on main thread when credential test raises an unexpected exception."""
+        UIHelpers.safe_configure_item("connect_button", enabled=True)
+        error_msg = f"Credential test failed:\n{str(e)}\nDetails:\n{traceback.format_exc()}"
+        StatusManager.show_status(error_msg, error=True)
+        UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
+        if self.theme_manager:
+            UIHelpers.safe_bind_item_theme(
+                "connection_indicator",
+                self.theme_manager.create_connection_indicator_theme(False),
+            )
 
     def auto_load_and_connect(self):
         """Auto-load credentials without attempting connection on startup."""

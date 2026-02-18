@@ -1,5 +1,6 @@
 """Database connection management for ClickHouse Client."""
 
+import threading
 import traceback
 from typing import Optional
 
@@ -14,12 +15,18 @@ from config import (
 
 
 class DatabaseManager:
-    """Manages ClickHouse database connections."""
+    """Manages ClickHouse database connections.
+
+    clickhouse_connect clients are not thread-safe; all calls are serialised
+    with a threading.Lock so that multiple background threads cannot issue
+    concurrent requests on the same HTTP connection.
+    """
 
     def __init__(self):
         self.client: Optional[clickhouse_connect.Client] = None
         self.is_connected = False
         self.connection_info = {}
+        self._lock = threading.Lock()  # serialise all DB access
 
     def connect(
         self,
@@ -48,52 +55,53 @@ class DatabaseManager:
         Returns:
             tuple: (success: bool, message: str)
         """
-        try:
-            # Validate inputs
-            if not all([host, str(port), username, database]):
-                return False, "All fields except password must be filled"
-
-            # Validate port
+        with self._lock:
             try:
-                port = int(port)
-            except ValueError:
-                return False, f"Port must be a number, got: {port}"
+                # Validate inputs
+                if not all([host, str(port), username, database]):
+                    return False, "All fields except password must be filled"
 
-            # Create client
-            self.client = clickhouse_connect.get_client(
-                host=host,
-                port=port,
-                username=username,
-                password=password,
-                database=database,
-                secure=True,
-                connect_timeout=connect_timeout,
-                send_receive_timeout=send_receive_timeout,
-                query_retries=query_retries,
-            )
+                # Validate port
+                try:
+                    port = int(port)
+                except ValueError:
+                    return False, f"Port must be a number, got: {port}"
 
-            # Test connection
-            self.client.query("SELECT 1")
+                # Create client
+                self.client = clickhouse_connect.get_client(
+                    host=host,
+                    port=port,
+                    username=username,
+                    password=password,
+                    database=database,
+                    secure=True,
+                    connect_timeout=connect_timeout,
+                    send_receive_timeout=send_receive_timeout,
+                    query_retries=query_retries,
+                )
 
-            # Store connection info
-            self.connection_info = {
-                "host": host,
-                "port": port,
-                "username": username,
-                "database": database,
-            }
-            self.is_connected = True
+                # Test connection
+                self.client.query("SELECT 1")
 
-            return True, f"Connected successfully to {host}:{port}"
+                # Store connection info
+                self.connection_info = {
+                    "host": host,
+                    "port": port,
+                    "username": username,
+                    "database": database,
+                }
+                self.is_connected = True
 
-        except Exception as e:
-            self.client = None
-            self.is_connected = False
-            error_msg = "Connection failed:\n"
-            error_msg += f"Error type: {type(e).__name__}\n"
-            error_msg += f"Error message: {str(e)}\n"
-            error_msg += f"Details:\n{traceback.format_exc()}"
-            return False, error_msg
+                return True, f"Connected successfully to {host}:{port}"
+
+            except Exception as e:
+                self.client = None
+                self.is_connected = False
+                error_msg = "Connection failed:\n"
+                error_msg += f"Error type: {type(e).__name__}\n"
+                error_msg += f"Error message: {str(e)}\n"
+                error_msg += f"Details:\n{traceback.format_exc()}"
+                return False, error_msg
 
     def test_credentials(
         self,
@@ -122,44 +130,45 @@ class DatabaseManager:
         Returns:
             tuple: (success: bool, message: str)
         """
-        try:
-            # Validate inputs
-            if not all([host, str(port), username, database]):
-                return False, "All fields except password must be filled"
-
-            # Validate port
+        with self._lock:
             try:
-                port = int(port)
-            except ValueError:
-                return False, f"Port must be a number, got: {port}"
+                # Validate inputs
+                if not all([host, str(port), username, database]):
+                    return False, "All fields except password must be filled"
 
-            # Create temporary client for testing
-            test_client = clickhouse_connect.get_client(
-                host=host,
-                port=port,
-                username=username,
-                password=password,
-                database=database,
-                secure=True,
-                connect_timeout=connect_timeout,
-                send_receive_timeout=send_receive_timeout,
-                query_retries=query_retries,
-            )
+                # Validate port
+                try:
+                    port = int(port)
+                except ValueError:
+                    return False, f"Port must be a number, got: {port}"
 
-            # Test connection
-            test_client.query("SELECT 1")
+                # Create temporary client for testing
+                test_client = clickhouse_connect.get_client(
+                    host=host,
+                    port=port,
+                    username=username,
+                    password=password,
+                    database=database,
+                    secure=True,
+                    connect_timeout=connect_timeout,
+                    send_receive_timeout=send_receive_timeout,
+                    query_retries=query_retries,
+                )
 
-            # Close test client (don't store it)
-            test_client = None
+                # Test connection
+                test_client.query("SELECT 1")
 
-            return True, f"Credentials are valid for {host}:{port}"
+                # Close test client (don't store it)
+                test_client = None
 
-        except Exception as e:
-            error_msg = "Credential test failed:\n"
-            error_msg += f"Error type: {type(e).__name__}\n"
-            error_msg += f"Error message: {str(e)}\n"
-            error_msg += f"Details:\n{traceback.format_exc()}"
-            return False, error_msg
+                return True, f"Credentials are valid for {host}:{port}"
+
+            except Exception as e:
+                error_msg = "Credential test failed:\n"
+                error_msg += f"Error type: {type(e).__name__}\n"
+                error_msg += f"Error message: {str(e)}\n"
+                error_msg += f"Details:\n{traceback.format_exc()}"
+                return False, error_msg
 
     def disconnect(self) -> str:
         """
@@ -186,21 +195,21 @@ class DatabaseManager:
         Returns:
             Query result object or None if error
         """
-        if not self.client:
-            raise Exception("Not connected to database")
-
-        return self.client.query(query)
+        with self._lock:
+            if not self.client:
+                raise Exception("Not connected to database")
+            return self.client.query(query)
 
     def get_tables(self) -> list[str]:
         """Get list of all tables in the database."""
-        if not self.client:
-            return []
-
-        try:
-            result = self.execute_query("SHOW TABLES")
-            return [str(row[0]) for row in result.result_rows]
-        except Exception:
-            return []
+        with self._lock:
+            if not self.client:
+                return []
+            try:
+                result = self.client.query("SHOW TABLES")
+                return [str(row[0]) for row in result.result_rows]
+            except Exception:
+                return []
 
     def get_table_columns(self, table_name: str) -> list[tuple[str, str]]:
         """
@@ -212,22 +221,15 @@ class DatabaseManager:
         Returns:
             List of (column_name, column_type) tuples
         """
-        if not self.client:
-            return []
-
-        try:
-            query = f"DESCRIBE TABLE `{table_name.strip()}`"
-            result = self.execute_query(query)
-
-            columns = []
-            for row in result.result_rows:
-                column_name = str(row[0])
-                column_type = str(row[1])
-                columns.append((column_name, column_type))
-
-            return columns
-        except Exception:
-            return []
+        with self._lock:
+            if not self.client:
+                return []
+            try:
+                query = f"DESCRIBE TABLE `{table_name.strip()}`"
+                result = self.client.query(query)
+                return [(str(row[0]), str(row[1])) for row in result.result_rows]
+            except Exception:
+                return []
 
 
 def encrypt_password(password: str) -> str:

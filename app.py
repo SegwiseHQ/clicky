@@ -2,6 +2,7 @@
 
 from dearpygui.dearpygui import *
 
+from async_worker import AsyncWorker
 from components import QueryInterface, StatusManager, TableBrowser
 from components.connection_manager import ConnectionManager
 from components.credentials_ui import CredentialsUI
@@ -33,13 +34,16 @@ class ClickHouseClientApp:
         self.theme_manager = ThemeManager()
         self.theme_manager.apply_global_theme()
 
+        # Async worker — runs DB tasks on background threads, posts UI callbacks to main thread
+        self.async_worker = AsyncWorker()
+
         # Components
         self.db_manager = DatabaseManager()
         self.credentials_manager = CredentialsManager()
 
         # Initialize connection manager
         self.connection_manager = ConnectionManager(
-            self.db_manager, self.credentials_manager, self.theme_manager
+            self.db_manager, self.credentials_manager, self.theme_manager, self.async_worker
         )
 
         # Initialize credentials UI
@@ -56,9 +60,10 @@ class ClickHouseClientApp:
             self.credentials_manager,
             self.theme_manager,
             self.connection_manager,
+            self.async_worker,
         )
-        self.query_interface = QueryInterface(self.db_manager, self.theme_manager)
-        self.data_explorer = DataExplorer(self.db_manager, self.theme_manager)
+        self.query_interface = QueryInterface(self.db_manager, self.theme_manager, self.async_worker)
+        self.data_explorer = DataExplorer(self.db_manager, self.theme_manager, self.async_worker)
 
         # Initialize UI Layout with required components
         self.ui_layout = UILayout(
@@ -163,5 +168,10 @@ class ClickHouseClientApp:
         # Show saved connections in the left panel
         self.table_browser_ui.show_saved_connections()
 
-        start_dearpygui()
+        # Manual render loop: drain async UI callbacks each frame so background
+        # threads can safely update the UI without thread-safety issues.
+        while is_dearpygui_running():
+            self.async_worker.process_pending()
+            render_dearpygui_frame()
+
         destroy_context()
