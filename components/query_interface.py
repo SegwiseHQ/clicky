@@ -692,6 +692,7 @@ class TabbedQueryInterface:
         )
         self._tabs[tab_id] = state
         self._build_tab_ui(state)
+        set_value("query_tab_bar", state.tab_tag)
         return tab_id
 
     def _build_tab_ui(self, state: QueryTabState):
