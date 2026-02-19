@@ -16,6 +16,37 @@ class FontManager:
         # Go up one level to the project root and then to assets
         return os.path.join(script_dir, "assets")
 
+    # Unicode icon code points used in SIMPLE_ICONS (outside Basic Latin)
+    ICON_CHARS = [
+        0x25CF,  # ● BLACK CIRCLE
+        0x2261,  # ≡ IDENTICAL TO
+        0x00B7,  # · MIDDLE DOT
+        0x25C9,  # ◉ FISHEYE
+        0x25CB,  # ○ WHITE CIRCLE
+        0x2713,  # ✓ CHECK MARK
+        0x2715,  # ✕ MULTIPLICATION X
+        0x25B3,  # △ WHITE UP-POINTING TRIANGLE
+        0x21BB,  # ↻ CLOCKWISE OPEN CIRCLE ARROW
+        0x2193,  # ↓ DOWNWARDS ARROW
+        0x2191,  # ↑ UPWARDS ARROW
+        0x00D7,  # × MULTIPLICATION SIGN
+        0x2315,  # ⌕ TELEPHONE RECORDER
+        0x25BF,  # ▿ WHITE DOWN-POINTING SMALL TRIANGLE
+        0x25B6,  # ▶ BLACK RIGHT-POINTING TRIANGLE
+        0x229E,  # ⊞ SQUARED PLUS
+        0x2299,  # ⊙ CIRCLED DOT OPERATOR
+        0x203A,  # › SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+        0x2026,  # … HORIZONTAL ELLIPSIS
+    ]
+
+    @staticmethod
+    def _load_font_with_icons(font_path: str, size: int):
+        """Load a font file and include the Unicode icon glyphs."""
+        f = add_font(font_path, size)
+        add_font_range_hint(mvFontRangeHint_Default, parent=f)
+        add_font_chars(FontManager.ICON_CHARS, parent=f)
+        return f
+
     @staticmethod
     def setup_monospace_font():
         """Setup JetBrains Mono font from bundled assets."""
@@ -32,7 +63,7 @@ class FontManager:
                     print(
                         f"Loading bundled JetBrains Mono font from: {bundled_font_path}"
                     )
-                    monospace_font = add_font(bundled_font_path, 16)
+                    monospace_font = FontManager._load_font_with_icons(bundled_font_path, 16)
                     bind_font(monospace_font)
                     return True
                 except Exception as e:
@@ -58,7 +89,7 @@ class FontManager:
                         print(
                             f"Loading system fallback font {font_name} from: {font_path}"
                         )
-                        monospace_font = add_font(font_path, 14)
+                        monospace_font = FontManager._load_font_with_icons(font_path, 14)
                         bind_font(monospace_font)
                         return True
                 except Exception as e:

@@ -36,69 +36,66 @@ TABLE_BUTTON_HEIGHT = 30
 # Data Explorer panel settings
 
 # Colors (RGB tuples) - Enhanced color palette
-COLOR_SUCCESS = (40, 167, 69)  # Bootstrap success green
+COLOR_SUCCESS = (34, 197, 94)   # Slightly brighter green
 COLOR_ERROR = (220, 53, 69)  # Bootstrap danger red
 COLOR_WARNING = (255, 193, 7)  # Bootstrap warning yellow
 COLOR_INFO = (23, 162, 184)  # Bootstrap info blue
-COLOR_PRIMARY = (0, 123, 255)  # Bootstrap primary blue
+COLOR_PRIMARY = (99, 102, 241)  # Indigo-500 (modern)
 
 # Table and UI element colors
-COLOR_COLUMN = (40, 167, 69)  # Green for column names
-COLOR_TABLE_HEADER = (33, 37, 41)  # Dark header background
-COLOR_TABLE_ROW_ALT = (248, 249, 250)  # Alternating row color
-COLOR_CONNECTED = (40, 167, 69)  # Connection indicator green
+COLOR_COLUMN = (34, 197, 94)   # Match success green
+COLOR_TABLE_HEADER = (20, 20, 24)  # Match surface
+COLOR_TABLE_ROW_ALT = (26, 26, 32)  # Very dark stripe (fix: was near-white)
+COLOR_CONNECTED = (34, 197, 94)   # Match success green
 COLOR_DISCONNECTED = (220, 53, 69)  # Connection indicator red
 
 # Background and text colors
-COLOR_BACKGROUND = (32, 32, 32)  # Dark gray background
-COLOR_SURFACE = (48, 48, 48)  # Slightly lighter surface
-COLOR_TEXT_PRIMARY = (237, 242, 247)  # Light text
-COLOR_TEXT_SECONDARY = (160, 174, 192)  # Muted text
-COLOR_ACCENT = (70, 130, 180)  # Darker blue accent color
+COLOR_BACKGROUND = (13, 13, 15)   # True dark background
+COLOR_SURFACE = (20, 20, 24)      # Darker panel surface
+COLOR_SURFACE_ELEVATED = (28, 28, 36)  # Inputs, elevated cards
+COLOR_TEXT_PRIMARY = (226, 226, 231)   # Slightly warmer white
+COLOR_TEXT_SECONDARY = (113, 113, 122)  # More muted secondary text
+COLOR_ACCENT = (79, 82, 198)      # Indigo-600 (deeper)
 
 # Button colors - Desaturated palette for better contrast balance
-COLOR_BUTTON_PRIMARY = (59, 130, 246)  # #3B82F6 (blue-500) - Connect button
+COLOR_BUTTON_PRIMARY = (99, 102, 241)   # Indigo-500 - Connect button
 COLOR_BUTTON_SUCCESS = (16, 185, 129)  # #10B981 (emerald-500) - Save As button
 COLOR_BUTTON_DANGER = (239, 68, 68)  # #EF4444 (red-500 toned down) - Delete button
-COLOR_BUTTON_SECONDARY = (
-    107,
-    114,
-    128,
-)  # #6B7280 (gray-500) - Disconnect/secondary buttons
+COLOR_BUTTON_SECONDARY = (42, 42, 54)  # Dark ghost button
 
 # Special element colors
-COLOR_EXPLORER_TITLE = (220, 220, 220)  # Light gray title text
-COLOR_STATUS_BG = (25, 77, 51)  # Dark green status banner background
-COLOR_BORDER = (74, 85, 104)  # Border color
+COLOR_EXPLORER_TITLE = (180, 180, 195)  # Softer header
+COLOR_STATUS_BG = (20, 20, 24)    # Match surface (remove dated green banner)
+COLOR_BORDER = (37, 37, 46)       # Subtle, near-invisible borders
 
 # Icons and symbols (Font Awesome Unicode)
 
-# Simple bracketed text icons - reliable across all systems
+# Unicode icons - BMP characters, render correctly in JetBrains Mono
 SIMPLE_ICONS = {
-    "ICON_DATABASE": "[DB]",
-    "ICON_TABLE": "[T]",
-    "ICON_COLUMN": "[C]",
-    "ICON_CONNECT": "[C]",
-    "ICON_DISCONNECT": "[D]",
-    "ICON_SUCCESS": "[OK]",
-    "ICON_ERROR": "[ERR]",
-    "ICON_WARNING": "[WARN]",
-    "ICON_INFO": "[INFO]",
-    "ICON_REFRESH": "[R]",
-    "ICON_SAVE": "[S]",
-    "ICON_LOAD": "[L]",
-    "ICON_DELETE": "[DEL]",
-    "ICON_SEARCH": "[SEARCH]",
-    "ICON_FILTER": "[FILTER]",
-    "ICON_EXPORT": "[EXPORT]",
-    "ICON_QUERY": "[Q]",
-    "ICON_EXPLORER": "[EXPLORE]",
-    "ICON_SETTINGS": "[SET]",
-    "ICON_STATUS_CONNECTED": "[ONLINE]",
-    "ICON_STATUS_DISCONNECTED": "[OFFLINE]",
-    "ICON_ARROW_DOWN": "[v]",
-    "ICON_ARROW_RIGHT": "[>]",
-    "ICON_LOADING": "[...]",
+    "ICON_DATABASE": "●",
+    "ICON_TABLE": "≡",
+    "ICON_COLUMN": "·",
+    "ICON_CONNECT": "◉",
+    "ICON_DISCONNECT": "○",
+    "ICON_SUCCESS": "✓",
+    "ICON_ERROR": "✕",
+    "ICON_WARNING": "△",
+    "ICON_INFO": "·",
+    "ICON_REFRESH": "↻",
+    "ICON_SAVE": "↓",
+    "ICON_LOAD": "↑",
+    "ICON_DELETE": "×",
+    "ICON_SEARCH": "⌕",
+    "ICON_FILTER": "▿",
+    "ICON_EXPORT": "↓",
+    "ICON_QUERY": "▶",
+    "ICON_EXPLORER": "⊞",
+    "ICON_SETTINGS": "⊙",
+    "ICON_STATUS_CONNECTED": "●",
+    "ICON_STATUS_DISCONNECTED": "○",
+    "ICON_ARROW_DOWN": "↓",
+    "ICON_ARROW_RIGHT": "›",
+    "ICON_LOADING": "…",
 }
 
 
