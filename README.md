@@ -8,7 +8,8 @@ pyinstaller --onefile --windowed main.py --icon=./assets/icons/app.icns --add-da
 
 Need a free desktop client for clickhouse. Was using DBeaver till now, but a recent update broke clickhouse connection. There was no other desktop client which was free.
 
-  
+<img width="1195" height="799" alt="Screenshot 2026-02-19 at 11 00 06 PM" src="https://github.com/user-attachments/assets/582d0c5c-06a0-488f-8a58-fc6332343af3" />
+
 
 # Features
 
