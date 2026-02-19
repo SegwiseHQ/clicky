@@ -2,7 +2,7 @@
 
 from dearpygui.dearpygui import *
 
-from config import QUERY_INPUT_HEIGHT, TABLES_PANEL_WIDTH
+from config import TABLES_PANEL_WIDTH
 from icon_manager import icon_manager
 from utils import FontManager
 
@@ -122,47 +122,13 @@ class UILayout:
         # Status will be set by StatusManager
 
     def _setup_query_section(self):
-        """Setup the query input and results section."""
+        """Setup the tabbed query section."""
         with group(tag="query_section"):
             add_text(f"{icon_manager.get('query')} Query", color=(220, 220, 220))
-            add_input_text(
-                tag="query_input", multiline=True, width=-1, height=QUERY_INPUT_HEIGHT
+            add_tab_bar(tag="query_tab_bar")
+            self._add_tab_button_id = add_tab_button(
+                label=" + ", parent="query_tab_bar", callback=None
             )
-            if self.theme_manager:
-                bind_item_theme(
-                    "query_input", self.theme_manager.get_theme("input_enhanced")
-                )
-
-            # Run Query button
-            add_button(
-                label=f"{icon_manager.get('query')} Run Query", tag="run_query_button"
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "run_query_button", self.theme_manager.get_theme("button_primary")
-                )
-
-            # Save as JSON button - positioned below Run Query button
-            add_button(
-                label=f"{icon_manager.get('export')} Save as JSON",
-                tag="save_json_button",
-                show=False,  # Initially hidden
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    "save_json_button", self.theme_manager.get_theme("button_primary")
-                )
-
-            add_separator()
-
-            # Results window - fills remaining vertical space
-            with child_window(
-                label=f"{icon_manager.get('table')} Results",
-                tag="results_window",
-                border=True,
-                height=-1,
-            ):
-                pass  # Table will be added here dynamically
 
     def _setup_explorer_section(self):
         """Setup the data explorer section."""
@@ -244,18 +210,14 @@ class UILayout:
                             tag="row_details_placeholder",
                         )
 
-    def connect_callbacks_to_query_interface(self, query_interface):
-        """Connect the query interface callbacks after creation."""
-        if query_interface:
-            # Connect run query callback
+    def connect_callbacks_to_query_interface(self, tabbed_query_interface):
+        """Wire the '+' tab button and create the initial tab."""
+        if tabbed_query_interface:
             configure_item(
-                "run_query_button", callback=query_interface.run_query_callback
+                self._add_tab_button_id,
+                callback=lambda s, d: tabbed_query_interface.create_tab(),
             )
-
-            # Connect save as JSON callback
-            configure_item(
-                "save_json_button", callback=query_interface.save_as_json_callback
-            )
+            tabbed_query_interface.create_tab()
 
     def connect_callbacks_to_data_explorer(self, data_explorer):
         """Connect the data explorer callbacks after creation."""

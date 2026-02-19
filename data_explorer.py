@@ -51,9 +51,8 @@ class DataExplorer:
         if status_callback:
             status_callback(f"Opening data explorer for table: {self.current_table}")
 
-        # Hide query and results sections
+        # Hide query section
         configure_item("query_section", show=False)
-        configure_item("results_window", show=False)
 
         # Show explorer section
         configure_item("explorer_section", show=True)
@@ -101,7 +100,6 @@ class DataExplorer:
 
         configure_item("explorer_section", show=False)
         configure_item("query_section", show=True)
-        configure_item("results_window", show=True)
 
     def _setup_filters(self):
         """Setup WHERE filter control for the current table."""

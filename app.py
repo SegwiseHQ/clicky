@@ -3,15 +3,16 @@
 from dearpygui.dearpygui import *
 
 from async_worker import AsyncWorker
-from components import QueryInterface, StatusManager, TableBrowser
+from components import StatusManager, TableBrowser
 from components.connection_manager import ConnectionManager
 from components.credentials_ui import CredentialsUI
+from components.query_interface import TabbedQueryInterface
 from components.table_browser_ui import TableBrowserUI
 from components.ui_layout import UILayout
 from config import MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH
 from credentials_manager import CredentialsManager
 from data_explorer import DataExplorer
-from database import DatabaseManager
+from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 from theme_manager import ThemeManager
 from utils import UIHelpers
@@ -62,7 +63,15 @@ class ClickHouseClientApp:
             self.connection_manager,
             self.async_worker,
         )
-        self.query_interface = QueryInterface(self.db_manager, self.theme_manager, self.async_worker)
+
+        self.connection_pool = ConnectionPool()
+        self.tabbed_query_interface = TabbedQueryInterface(
+            connection_pool=self.connection_pool,
+            db_manager=self.db_manager,
+            theme_manager=self.theme_manager,
+            async_worker=self.async_worker,
+        )
+
         self.data_explorer = DataExplorer(self.db_manager, self.theme_manager, self.async_worker)
 
         # Initialize UI Layout with required components
@@ -91,7 +100,7 @@ class ClickHouseClientApp:
         self.table_browser_ui.connection_callback = (
             self.connection_manager.connect_callback
         )
-        self.query_interface.set_status_callback(StatusManager.show_status)
+        self.tabbed_query_interface.set_status_callback(StatusManager.show_status)
 
     def setup_ui(self):
         """Setup the main user interface using UI Layout component."""
@@ -102,7 +111,7 @@ class ClickHouseClientApp:
         )
 
         # Connect callbacks after UI is created
-        self.ui_layout.connect_callbacks_to_query_interface(self.query_interface)
+        self.ui_layout.connect_callbacks_to_query_interface(self.tabbed_query_interface)
         self.ui_layout.connect_callbacks_to_data_explorer(self.data_explorer)
 
         # Initialize status
@@ -111,11 +120,15 @@ class ClickHouseClientApp:
     def _handle_connect_success(self):
         """Handle additional tasks after successful connection."""
         try:
+            # Configure the connection pool with the current credentials
+            params = self.connection_manager.get_connection_parameters()
+            if params:
+                self.connection_pool.configure(params)
+
             # Auto-save credentials on successful connection
             self.credentials_ui.save_credentials_callback(None, None)
 
             # Automatically list tables after successful connection
-            # Use table browser UI's filtering to display connection and tables
             current_search = UIHelpers.safe_get_value("table_search", "")
             self.table_browser_ui.filter_tables_callback(None, current_search)
 
@@ -172,6 +185,7 @@ class ClickHouseClientApp:
         # threads can safely update the UI without thread-safety issues.
         while is_dearpygui_running():
             self.async_worker.process_pending()
+            self.tabbed_query_interface.poll_closed_tabs()
             render_dearpygui_frame()
 
         destroy_context()

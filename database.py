@@ -232,6 +232,71 @@ class DatabaseManager:
                 return []
 
 
+class ConnectionPool:
+    """Per-tab connection pool — one clickhouse_connect.Client per tab, created lazily.
+
+    The lock only guards the _clients dict; actual I/O (get_client, query) happens
+    outside the lock so each tab's connection is fully independent.
+    """
+
+    def __init__(self):
+        self._credentials: Optional[dict] = None
+        self._clients: dict[int, object] = {}
+        self._lock = threading.Lock()
+
+    def configure(self, credentials: Optional[dict]) -> None:
+        """Store (or clear) the credentials used to create new clients."""
+        with self._lock:
+            self._credentials = credentials
+
+    @property
+    def is_configured(self) -> bool:
+        return self._credentials is not None
+
+    def get_or_create_client(self, tab_id: int):
+        """Return the cached client for tab_id, creating one if needed."""
+        with self._lock:
+            if tab_id in self._clients:
+                return self._clients[tab_id]
+            if not self._credentials:
+                raise Exception("Connection pool is not configured")
+            creds = dict(self._credentials)  # snapshot before releasing lock
+
+        client = clickhouse_connect.get_client(
+            host=creds["host"],
+            port=int(creds["port"]),
+            username=creds["username"],
+            password=creds.get("password", ""),
+            database=creds["database"],
+            secure=True,
+            connect_timeout=creds.get("connect_timeout", DEFAULT_CONNECT_TIMEOUT),
+            send_receive_timeout=creds.get(
+                "send_receive_timeout", DEFAULT_SEND_RECEIVE_TIMEOUT
+            ),
+            query_retries=creds.get("query_retries", DEFAULT_QUERY_RETRIES),
+        )
+
+        with self._lock:
+            if tab_id not in self._clients:
+                self._clients[tab_id] = client
+            return self._clients[tab_id]
+
+    def execute_query(self, tab_id: int, query: str):
+        """Execute a query on the client for the given tab."""
+        client = self.get_or_create_client(tab_id)
+        return client.query(query)
+
+    def release(self, tab_id: int) -> None:
+        """Remove the client for a closed tab."""
+        with self._lock:
+            self._clients.pop(tab_id, None)
+
+    def release_all(self) -> None:
+        """Clear all clients (called on disconnect)."""
+        with self._lock:
+            self._clients.clear()
+
+
 def encrypt_password(password: str) -> str:
     """Encrypt password for storage."""
     if not password:
