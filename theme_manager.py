@@ -19,6 +19,7 @@ from config import (
     COLOR_STATUS_BG,
     COLOR_SUCCESS,
     COLOR_SURFACE,
+    COLOR_SURFACE_ELEVATED,
     COLOR_TABLE_HEADER,
     COLOR_TABLE_ROW_ALT,
     COLOR_TEXT_PRIMARY,
@@ -62,12 +63,12 @@ class ThemeManager:
 
                 # Scrollbars
                 add_theme_color(mvThemeCol_ScrollbarBg, COLOR_SURFACE)
-                add_theme_color(mvThemeCol_ScrollbarGrab, COLOR_ACCENT)
+                add_theme_color(mvThemeCol_ScrollbarGrab, (55, 55, 68))
                 add_theme_color(mvThemeCol_ScrollbarGrabHovered, COLOR_PRIMARY)
                 add_theme_color(mvThemeCol_ScrollbarGrabActive, COLOR_PRIMARY)
 
                 # Frame background (for inputs, combos, etc.)
-                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE)
+                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE_ELEVATED)
                 add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
                 add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
 
@@ -87,10 +88,10 @@ class ThemeManager:
                 add_theme_color(mvThemeCol_ResizeGripActive, COLOR_PRIMARY)
 
                 # Tabs
-                add_theme_color(mvThemeCol_Tab, COLOR_SURFACE)
+                add_theme_color(mvThemeCol_Tab, (28, 28, 36))
                 add_theme_color(mvThemeCol_TabHovered, COLOR_ACCENT)
                 add_theme_color(mvThemeCol_TabActive, COLOR_PRIMARY)
-                add_theme_color(mvThemeCol_TabUnfocused, COLOR_SURFACE)
+                add_theme_color(mvThemeCol_TabUnfocused, (28, 28, 36))
                 add_theme_color(mvThemeCol_TabUnfocusedActive, COLOR_BORDER)
 
                 # Style adjustments - Modern rounded corners (0.5rem equivalent)
@@ -101,69 +102,53 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_ScrollbarRounding, 8)
                 add_theme_style(mvStyleVar_GrabRounding, 8)
                 add_theme_style(mvStyleVar_TabRounding, 8)
-                add_theme_style(mvStyleVar_WindowPadding, 12, 12)
-                add_theme_style(mvStyleVar_FramePadding, 8, 6)
-                add_theme_style(mvStyleVar_ItemSpacing, 8, 6)
+                add_theme_style(mvStyleVar_WindowPadding, 14, 10)
+                add_theme_style(mvStyleVar_FramePadding, 8, 5)
+                add_theme_style(mvStyleVar_ItemSpacing, 8, 4)
                 add_theme_style(mvStyleVar_ItemInnerSpacing, 6, 6)
                 add_theme_style(mvStyleVar_IndentSpacing, 20)
 
     def _create_button_themes(self):
         """Create button themes for different button types with desaturated colors."""
-        # Primary button theme (Connect button - blue-500)
+        # Primary button theme (Connect button - indigo-500)
         with theme() as self.themes["button_primary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_PRIMARY)
-                add_theme_color(
-                    mvThemeCol_ButtonHovered, (37, 99, 235)
-                )  # Darker blue on hover
-                add_theme_color(
-                    mvThemeCol_ButtonActive, (29, 78, 216)
-                )  # Even darker on click
+                add_theme_color(mvThemeCol_ButtonHovered, (79, 82, 198))  # Indigo-600 on hover
+                add_theme_color(mvThemeCol_ButtonActive, (67, 70, 178))   # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 8)
-                add_theme_style(mvStyleVar_FramePadding, 12, 8)
+                add_theme_style(mvStyleVar_FramePadding, 10, 6)
 
         # Success button theme (Save As button - emerald-500)
         with theme() as self.themes["button_success"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SUCCESS)
-                add_theme_color(
-                    mvThemeCol_ButtonHovered, (5, 150, 105)
-                )  # Darker emerald on hover
-                add_theme_color(
-                    mvThemeCol_ButtonActive, (4, 120, 87)
-                )  # Even darker on click
+                add_theme_color(mvThemeCol_ButtonHovered, (5, 150, 105))   # Darker emerald on hover
+                add_theme_color(mvThemeCol_ButtonActive, (4, 120, 87))     # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 8)
-                add_theme_style(mvStyleVar_FramePadding, 12, 8)
+                add_theme_style(mvStyleVar_FramePadding, 10, 6)
 
         # Danger button theme (Delete button - red-500 toned down)
         with theme() as self.themes["button_danger"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_DANGER)
-                add_theme_color(
-                    mvThemeCol_ButtonHovered, (220, 38, 38)
-                )  # Darker red on hover
-                add_theme_color(
-                    mvThemeCol_ButtonActive, (185, 28, 28)
-                )  # Even darker on click
+                add_theme_color(mvThemeCol_ButtonHovered, (220, 38, 38))   # Darker red on hover
+                add_theme_color(mvThemeCol_ButtonActive, (185, 28, 28))    # Even darker on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 8)
-                add_theme_style(mvStyleVar_FramePadding, 12, 8)
+                add_theme_style(mvStyleVar_FramePadding, 10, 6)
 
-        # Secondary button theme (Disconnect/Refresh - gray-500)
+        # Secondary button theme (Disconnect/Refresh - dark ghost)
         with theme() as self.themes["button_secondary"]:
             with theme_component(mvButton):
                 add_theme_color(mvThemeCol_Button, COLOR_BUTTON_SECONDARY)
-                add_theme_color(
-                    mvThemeCol_ButtonHovered, (75, 85, 99)
-                )  # Darker gray on hover
-                add_theme_color(
-                    mvThemeCol_ButtonActive, (55, 65, 81)
-                )  # Even darker on click
+                add_theme_color(mvThemeCol_ButtonHovered, (55, 55, 70))    # Slightly lighter on hover
+                add_theme_color(mvThemeCol_ButtonActive, (65, 65, 82))     # Even lighter on click
                 add_theme_color(mvThemeCol_Text, (255, 255, 255))
                 add_theme_style(mvStyleVar_FrameRounding, 8)
-                add_theme_style(mvStyleVar_FramePadding, 12, 8)
+                add_theme_style(mvStyleVar_FramePadding, 10, 6)
 
     def _create_table_themes(self):
         """Create table-specific themes."""
@@ -178,25 +163,25 @@ class ThemeManager:
                 add_theme_color(mvThemeCol_TableBorderLight, COLOR_BORDER)
                 add_theme_color(mvThemeCol_TableRowBg, (0, 0, 0, 0))
                 add_theme_color(mvThemeCol_TableRowBgAlt, COLOR_TABLE_ROW_ALT)
-                add_theme_style(mvStyleVar_CellPadding, 12, 8)
+                add_theme_style(mvStyleVar_CellPadding, 10, 6)
                 add_theme_style(mvStyleVar_ItemSpacing, 0, 2)
 
         # Left-aligned table button theme
         with theme() as self.themes["table_button"]:
             with theme_component(mvButton):
                 add_theme_style(mvStyleVar_ButtonTextAlign, 0.0, 0.5)
-                add_theme_color(mvThemeCol_Button, COLOR_SURFACE)
+                add_theme_color(mvThemeCol_Button, COLOR_SURFACE_ELEVATED)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_ACCENT)
                 add_theme_color(mvThemeCol_ButtonActive, COLOR_PRIMARY)
                 add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
                 add_theme_style(mvStyleVar_FrameRounding, 8)
                 add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
-        # Selected table button theme - highlighted with accent color
+        # Selected table button theme - highlighted with indigo
         with theme() as self.themes["selected_table_button"]:
             with theme_component(mvButton):
                 add_theme_style(mvStyleVar_ButtonTextAlign, 0.0, 0.5)
-                add_theme_color(mvThemeCol_Button, COLOR_ACCENT)
+                add_theme_color(mvThemeCol_Button, (79, 82, 198))
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
                 add_theme_color(mvThemeCol_ButtonActive, COLOR_PRIMARY)
                 add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
@@ -205,13 +190,11 @@ class ThemeManager:
 
     def _create_window_themes(self):
         """Create window-specific themes."""
-        # Status window theme - notification banner style
+        # Status window theme - clean panel (no green banner)
         with theme() as self.themes["status_window"]:
             with theme_component(mvChildWindow):
                 add_theme_color(mvThemeCol_ChildBg, COLOR_STATUS_BG)
-                add_theme_color(
-                    mvThemeCol_Border, COLOR_STATUS_BG
-                )  # Match border to background
+                add_theme_color(mvThemeCol_Border, (55, 55, 70))  # Slightly visible accent
                 add_theme_style(
                     mvStyleVar_ChildRounding, 8
                 )  # More rounded for banner look
@@ -232,7 +215,7 @@ class ThemeManager:
         # Enhanced input theme (for main app)
         with theme() as self.themes["input_enhanced"]:
             with theme_component(mvInputText):
-                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE)
+                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE_ELEVATED)
                 add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
                 add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
                 add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
