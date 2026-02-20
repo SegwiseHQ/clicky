@@ -10,11 +10,10 @@ from utils import FontManager
 class UILayout:
     """Manages the main UI layout and setup."""
 
-    def __init__(self, theme_manager, table_browser_ui, data_explorer):
+    def __init__(self, theme_manager, table_browser_ui):
         """Initialize UI layout manager."""
         self.theme_manager = theme_manager
         self.table_browser_ui = table_browser_ui
-        self.data_explorer = data_explorer
 
     def setup_main_ui(self, show_connection_settings_callback, connect_callback):
         """Setup the main user interface."""
@@ -131,84 +130,10 @@ class UILayout:
             )
 
     def _setup_explorer_section(self):
-        """Setup the data explorer section."""
+        """Setup the data explorer section (tab bar only; per-tab UI built in DataExplorer.create_ui)."""
         with group(tag="explorer_section", show=False):
-            # Simple WHERE filter section
-            with group(horizontal=True):
-                add_text("WHERE:")
-                add_input_text(
-                    tag="explorer_where",
-                    hint="Enter WHERE condition - Press Enter to apply",
-                    width=-1,
-                    on_enter=True,  # Only trigger callback on Enter key
-                    callback=lambda s, d: None,  # Will be connected later
-                )
-
-            # Button controls row (moved closer to reduce spacing)
-            with table(header_row=False, tag="button_table"):
-                add_table_column(width_fixed=True, init_width_or_weight=150)
-                add_table_column(width_fixed=True, init_width_or_weight=150)
-
-                with table_row():
-                    with table_cell():
-                        add_button(
-                            label="Close Explorer",
-                            tag="close_explorer_button",
-                            width=140,
-                            height=35,
-                        )
-                    with table_cell():
-                        add_button(
-                            label="Toggle Row View",
-                            tag="explorer_toggle_details_button",
-                            width=140,
-                            height=35,
-                        )
-
-            # Apply themes to all fields at once
-            if self.theme_manager:
-                bind_item_theme(
-                    "explorer_where",
-                    self.theme_manager.get_theme("input_enhanced"),
-                )
-                bind_item_theme(
-                    "close_explorer_button",
-                    self.theme_manager.get_theme("button_danger"),
-                )
-                bind_item_theme(
-                    "explorer_toggle_details_button",
-                    self.theme_manager.get_theme("button_primary"),
-                )
-
-            # Data window with horizontal split - fills remaining vertical space
-            with child_window(
-                label="Data", tag="explorer_data_window", border=True, height=-1
-            ):
-                with group(horizontal=True, tag="explorer_data_layout"):
-                    # Left panel: Main data table
-                    with child_window(
-                        label="Table Data",
-                        tag="explorer_main_table",
-                        border=True,
-                        width=-410,  # Leave space for right panel + some margin
-                        height=-1,
-                    ):
-                        add_text("Loading data...", color=(128, 128, 128))
-
-                    # Right panel: Row details (initially visible)
-                    with child_window(
-                        label="Row Details",
-                        tag="explorer_row_details",
-                        border=True,
-                        width=400,
-                        height=-1,
-                        show=True,  # Initially visible
-                    ):
-                        add_text(
-                            "Select a row to view details",
-                            color=(128, 128, 128),
-                            tag="row_details_placeholder",
-                        )
+            add_text(f"{icon_manager.get('query')} Explorer", color=(220, 220, 220))
+            add_tab_bar(tag="explorer_tab_bar")
 
     def connect_callbacks_to_query_interface(self, tabbed_query_interface):
         """Wire the '+' tab button and create the initial tab."""
@@ -219,46 +144,3 @@ class UILayout:
             )
             tabbed_query_interface.create_tab()
 
-    def connect_callbacks_to_data_explorer(self, data_explorer):
-        """Connect the data explorer callbacks after creation."""
-        if data_explorer:
-            # Connect close explorer callback
-            configure_item(
-                "close_explorer_button", callback=data_explorer.close_explorer
-            )
-
-            # Connect other explorer callbacks
-            try:
-                # Connect WHERE and limit input callbacks
-                configure_item(
-                    "explorer_where", callback=data_explorer._on_where_change
-                )
-
-                # Connect toggle details button
-                configure_item(
-                    "explorer_toggle_details_button",
-                    callback=self._toggle_row_details_panel,
-                )
-
-            except Exception as e:
-                print(f"Error connecting data explorer callbacks: {e}")
-
-    def _toggle_row_details_panel(self):
-        """Toggle the visibility of the row details panel."""
-        try:
-            # Get current visibility state
-            is_visible = get_item_configuration("explorer_row_details")["show"]
-
-            # Toggle visibility
-            configure_item("explorer_row_details", show=not is_visible)
-
-            # Adjust main table width based on panel visibility
-            if is_visible:
-                # Panel is being hidden - expand main table to full width
-                configure_item("explorer_main_table", width=-1)
-            else:
-                # Panel is being shown - leave space for it
-                configure_item("explorer_main_table", width=-410)
-
-        except Exception as e:
-            print(f"Error toggling row details panel: {e}")
