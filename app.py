@@ -11,7 +11,7 @@ from components.table_browser_ui import TableBrowserUI
 from components.ui_layout import UILayout
 from config import MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH
 from credentials_manager import CredentialsManager
-from data_explorer import DataExplorer
+from data_explorer import TabbedExplorerInterface
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 from theme_manager import ThemeManager
@@ -72,12 +72,14 @@ class ClickHouseClientApp:
             async_worker=self.async_worker,
         )
 
-        self.data_explorer = DataExplorer(self.db_manager, self.theme_manager, self.async_worker)
+        self.tabbed_explorer = TabbedExplorerInterface(
+            db_manager=self.db_manager,
+            theme_manager=self.theme_manager,
+            async_worker=self.async_worker,
+        )
 
         # Initialize UI Layout with required components
-        self.ui_layout = UILayout(
-            self.theme_manager, self.table_browser_ui, self.data_explorer
-        )
+        self.ui_layout = UILayout(self.theme_manager, self.table_browser_ui)
 
         # Set up callbacks for connection manager
         self.connection_manager.on_connect_success = self._handle_connect_success
@@ -92,15 +94,14 @@ class ClickHouseClientApp:
         StatusManager.set_theme_manager(self.theme_manager)
 
         # Set up callbacks
-        self.table_browser.set_double_click_callback(self.data_explorer.open_explorer)
+        self.table_browser.set_double_click_callback(self.tabbed_explorer.open_tab)
         self.table_browser.set_status_callback(StatusManager.show_status)
-        self.table_browser_ui.set_double_click_callback(
-            self.data_explorer.open_explorer
-        )
+        self.table_browser_ui.set_double_click_callback(self.tabbed_explorer.open_tab)
         self.table_browser_ui.connection_callback = (
             self.connection_manager.connect_callback
         )
         self.tabbed_query_interface.set_status_callback(StatusManager.show_status)
+        self.tabbed_explorer.set_status_callback(StatusManager.show_status)
 
     def setup_ui(self):
         """Setup the main user interface using UI Layout component."""
@@ -112,7 +113,6 @@ class ClickHouseClientApp:
 
         # Connect callbacks after UI is created
         self.ui_layout.connect_callbacks_to_query_interface(self.tabbed_query_interface)
-        self.ui_layout.connect_callbacks_to_data_explorer(self.data_explorer)
 
         # Initialize status
         StatusManager.show_status("Not connected", error=True)
@@ -186,6 +186,7 @@ class ClickHouseClientApp:
         while is_dearpygui_running():
             self.async_worker.process_pending()
             self.tabbed_query_interface.poll_closed_tabs()
+            self.tabbed_explorer.poll_closed_tabs()
             render_dearpygui_frame()
 
         destroy_context()
