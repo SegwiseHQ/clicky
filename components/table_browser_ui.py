@@ -38,6 +38,9 @@ class TableBrowserUI:
         # Sequence number to discard stale async table-list results
         self._tables_seq = 0
 
+        # Explicitly tracked active connection name (set when connecting to a saved connection)
+        self.active_connection_name: str = ""
+
     def set_double_click_callback(self, callback: Callable[[str], None]):
         """Set callback for table single-click events to open explorer."""
         self.double_click_callback = callback
@@ -173,7 +176,10 @@ class TableBrowserUI:
             add_text("Other Connections:", parent="tables_list", color=(220, 220, 220))
 
             credential_names = self.credentials_manager.get_credential_names()
-            current_connection_name = self._find_credential_name_for_connection()
+            current_connection_name = (
+                self.active_connection_name
+                or self._find_credential_name_for_connection()
+            )
 
             other_connections = [
                 name for name in credential_names if name != current_connection_name
@@ -331,7 +337,11 @@ class TableBrowserUI:
         # Check if we're already connected to this connection
         current_connection_name = ""
         if self.db_manager.is_connected:
-            current_connection_name = self._find_credential_name_for_connection()
+            # Prefer the explicitly tracked name; fall back to credential matching
+            current_connection_name = (
+                self.active_connection_name
+                or self._find_credential_name_for_connection()
+            )
 
         # If already connected to this connection, just toggle expansion
         if current_connection_name == connection_name and self.db_manager.is_connected:
@@ -385,6 +395,7 @@ class TableBrowserUI:
                     and saved_port == current_port
                     and saved_user == current_user
                     and saved_db == current_db
+                    and self.active_connection_name == connection_name
                 ):
                     # We're already connected to this database, no need to reconnect
                     should_reconnect = False
@@ -407,6 +418,9 @@ class TableBrowserUI:
             # For actual connection, we need to trigger the connection callback
             # This will be handled by the main app
             if hasattr(self, "connection_callback"):
+                # Track the name the user explicitly selected
+                self.active_connection_name = connection_name
+
                 # Store loaded credentials for connection in both places
                 self.stored_credentials = credentials
 
@@ -426,6 +440,16 @@ class TableBrowserUI:
                     parent="tables_list",
                     color=(100, 150, 255),
                 )
+
+                # Populate form fields so get_connection_parameters() picks up the right values.
+                # Guard with does_item_exist — the form may not be rendered yet if the
+                # connection panel was never opened.
+                if does_item_exist("host_input"):
+                    set_value("host_input", credentials.get("host", ""))
+                    set_value("port_input", str(credentials.get("port", "")))
+                    set_value("username_input", credentials.get("user", ""))
+                    set_value("password_input", credentials.get("password", ""))
+                    set_value("database_input", credentials.get("database", ""))
 
                 # Kick off async connection — on_connect_success will refresh the table list
                 self.connection_callback(None, None)
@@ -468,13 +492,18 @@ class TableBrowserUI:
         """Clear connection-related state during disconnection."""
         self.connections_expanded.clear()
         self.selected_table = None
+        self.active_connection_name = ""
 
     def _get_connection_display_name(self) -> str:
         """Get a display name for the current connection."""
         if not self.db_manager.is_connected or not self.db_manager.connection_info:
             return "No Connection"
 
-        # Try to find a matching credential name
+        # Prefer explicitly tracked name (set when user selects a saved connection)
+        if self.active_connection_name:
+            return self.active_connection_name
+
+        # Fall back to credential matching
         credential_name = self._find_credential_name_for_connection()
         if credential_name:
             return credential_name
