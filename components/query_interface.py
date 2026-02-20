@@ -765,7 +765,7 @@ class TabbedQueryInterface:
         closed_ids = [
             tab_id
             for tab_id, state in list(self._tabs.items())
-            if not does_item_exist(state.tab_tag)
+            if not does_item_exist(state.tab_tag) or not is_item_shown(state.tab_tag)
         ]
         for tab_id in closed_ids:
             self._close_tab_state(tab_id)
@@ -775,10 +775,12 @@ class TabbedQueryInterface:
             self.create_tab()
 
     def _close_tab_state(self, tab_id: int):
-        """Clean up state for a tab whose DPG item has already been removed."""
+        """Clean up state for a tab that has been closed."""
         state = self._tabs.pop(tab_id, None)
         if state is None:
             return
+        if does_item_exist(state.tab_tag):
+            delete_item(state.tab_tag)
         self.connection_pool.release(tab_id)
 
     def close_tab(self, tab_id: int):
