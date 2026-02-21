@@ -678,11 +678,13 @@ class TabbedExplorerInterface:
             # Wire callbacks now that widgets exist
             configure_item(
                 explorer.close_btn_tag,
-                callback=lambda s, d, tid=tab_id: self._close_tab_by_id(tid),
+                callback=lambda s, d, u: self._close_tab_by_id(u),
+                user_data=tab_id,
             )
             configure_item(
                 explorer.toggle_btn_tag,
-                callback=lambda s, d, exp=explorer: self._toggle_row_details(exp),
+                callback=lambda s, d, u: self._toggle_row_details(u),
+                user_data=explorer,
             )
 
             # Auto-focus the new tab
