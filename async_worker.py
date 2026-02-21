@@ -9,7 +9,8 @@ The main render loop must call process_pending() every frame to drain the queue.
 
 import queue
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 class AsyncWorker:

@@ -1,7 +1,7 @@
 """Table browser UI component for ClickHouse Client."""
 
 import time
-from typing import Callable, Optional, Set
+from collections.abc import Callable
 
 from dearpygui.dearpygui import *
 
@@ -27,13 +27,13 @@ class TableBrowserUI:
         self.async_worker = async_worker
 
         # Track connection expansion state (initialized as collapsed)
-        self.connections_expanded: Set[str] = set()
+        self.connections_expanded: set[str] = set()
 
         # Track currently selected table
         self.selected_table = None
 
         # Single-click callback for explorer opening
-        self.double_click_callback: Optional[Callable[[str], None]] = None
+        self.double_click_callback: Callable[[str], None] | None = None
 
         # Sequence number to discard stale async table-list results
         self._tables_seq = 0
@@ -52,7 +52,7 @@ class TableBrowserUI:
         if preserve_scroll:
             try:
                 scroll_y = get_y_scroll("tables_panel")
-            except:
+            except Exception:
                 pass
 
         search_query = (app_data or "").strip().lower()
@@ -80,7 +80,12 @@ class TableBrowserUI:
             self.async_worker.run_async(
                 task=lambda: self.db_manager.get_tables(),
                 on_done=lambda tables: self._finish_filter_tables(
-                    tables, seq, search_query, connection_name, preserve_scroll, scroll_y
+                    tables,
+                    seq,
+                    search_query,
+                    connection_name,
+                    preserve_scroll,
+                    scroll_y,
                 ),
                 on_error=lambda e: self._on_get_tables_error(e, seq),
             )
@@ -88,7 +93,12 @@ class TableBrowserUI:
             # Synchronous fallback
             all_tables = self.db_manager.get_tables()
             self._finish_filter_tables(
-                all_tables, seq, search_query, connection_name, preserve_scroll, scroll_y
+                all_tables,
+                seq,
+                search_query,
+                connection_name,
+                preserve_scroll,
+                scroll_y,
             )
 
     def _finish_filter_tables(
@@ -100,7 +110,10 @@ class TableBrowserUI:
             return
 
         # Guard against late arrival after disconnect
-        if not self.db_manager.is_connected or "current" not in self.connections_expanded:
+        if (
+            not self.db_manager.is_connected
+            or "current" not in self.connections_expanded
+        ):
             self.show_saved_connections()
             return
 
@@ -137,7 +150,7 @@ class TableBrowserUI:
                         delete_item(table_button_tag)
                     if does_item_exist(context_menu_tag):
                         delete_item(context_menu_tag)
-                except:
+                except Exception:
                     pass
 
                 add_button(
@@ -212,7 +225,7 @@ class TableBrowserUI:
         if preserve_scroll:
             try:
                 set_y_scroll("tables_panel", scroll_y)
-            except:
+            except Exception:
                 pass
 
     def _on_get_tables_error(self, e: Exception, seq: int):
@@ -234,12 +247,16 @@ class TableBrowserUI:
             if self.selected_table:
                 prev_tag = f"table_button_{self.selected_table}"
                 if does_item_exist(prev_tag):
-                    bind_item_theme(prev_tag, self.theme_manager.get_theme("table_button"))
+                    bind_item_theme(
+                        prev_tag, self.theme_manager.get_theme("table_button")
+                    )
 
             # Highlight the newly selected table button
             new_tag = f"table_button_{table_name}"
             if does_item_exist(new_tag):
-                bind_item_theme(new_tag, self.theme_manager.get_theme("selected_table_button"))
+                bind_item_theme(
+                    new_tag, self.theme_manager.get_theme("selected_table_button")
+                )
 
         self.selected_table = table_name
 
@@ -252,7 +269,7 @@ class TableBrowserUI:
         # Get current scroll position before changing state
         try:
             scroll_y = get_y_scroll("tables_panel")
-        except:
+        except Exception:
             scroll_y = 0
 
         if "current" in self.connections_expanded:
@@ -272,7 +289,7 @@ class TableBrowserUI:
         # Restore scroll position after refresh
         try:
             set_y_scroll("tables_panel", scroll_y)
-        except:
+        except Exception:
             pass
 
     def show_saved_connections(self):

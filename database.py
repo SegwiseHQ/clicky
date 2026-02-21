@@ -2,7 +2,6 @@
 
 import threading
 import traceback
-from typing import Optional
 
 import clickhouse_connect
 
@@ -23,7 +22,7 @@ class DatabaseManager:
     """
 
     def __init__(self):
-        self.client: Optional[clickhouse_connect.Client] = None
+        self.client: clickhouse_connect.Client | None = None
         self.is_connected = False
         self.connection_info = {}
         self._lock = threading.Lock()  # serialise all DB access
@@ -240,11 +239,11 @@ class ConnectionPool:
     """
 
     def __init__(self):
-        self._credentials: Optional[dict] = None
+        self._credentials: dict | None = None
         self._clients: dict[int, object] = {}
         self._lock = threading.Lock()
 
-    def configure(self, credentials: Optional[dict]) -> None:
+    def configure(self, credentials: dict | None) -> None:
         """Store (or clear) the credentials used to create new clients."""
         with self._lock:
             self._credentials = credentials
@@ -310,5 +309,5 @@ def decrypt_password(encrypted: str) -> str:
         return ""
     try:
         return cipher_suite.decrypt(encrypted.encode()).decode()
-    except:
+    except Exception:
         return ""

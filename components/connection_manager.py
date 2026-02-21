@@ -148,7 +148,11 @@ class ConnectionManager:
         else:
             # Synchronous fallback
             success, message = self.db_manager.connect(
-                host, port, username, password, database,
+                host,
+                port,
+                username,
+                password,
+                database,
                 connect_timeout=DEFAULT_CONNECT_TIMEOUT,
                 send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
                 query_retries=DEFAULT_QUERY_RETRIES,
@@ -160,7 +164,9 @@ class ConnectionManager:
         success, message = result
         UIHelpers.safe_configure_item("connect_button", enabled=True)
 
-        print(f"[DEBUG] Connection attempt result: success={success}, message={message}")
+        print(
+            f"[DEBUG] Connection attempt result: success={success}, message={message}"
+        )
 
         if success:
             StatusManager.show_status(message)
@@ -250,7 +256,11 @@ class ConnectionManager:
             )
         else:
             success, message = self.db_manager.test_credentials(
-                host, port, username, password, database,
+                host,
+                port,
+                username,
+                password,
+                database,
                 connect_timeout=DEFAULT_CONNECT_TIMEOUT,
                 send_receive_timeout=DEFAULT_SEND_RECEIVE_TIMEOUT,
                 query_retries=DEFAULT_QUERY_RETRIES,
@@ -285,7 +295,9 @@ class ConnectionManager:
     def _on_test_error(self, e: Exception):
         """Called on main thread when credential test raises an unexpected exception."""
         UIHelpers.safe_configure_item("connect_button", enabled=True)
-        error_msg = f"Credential test failed:\n{str(e)}\nDetails:\n{traceback.format_exc()}"
+        error_msg = (
+            f"Credential test failed:\n{str(e)}\nDetails:\n{traceback.format_exc()}"
+        )
         StatusManager.show_status(error_msg, error=True)
         UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
         if self.theme_manager:

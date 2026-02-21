@@ -26,17 +26,16 @@ class UILayout:
             no_collapse=True,
         ):
             # Add menu bar
-            with menu_bar():
-                with menu(label="File"):
-                    add_menu_item(
-                        label="Connection Settings",
-                        callback=show_connection_settings_callback,
-                    )
-                    add_separator()
-                    add_menu_item(
-                        label="Connect",
-                        callback=connect_callback,
-                    )
+            with menu_bar(), menu(label="File"):
+                add_menu_item(
+                    label="Connection Settings",
+                    callback=show_connection_settings_callback,
+                )
+                add_separator()
+                add_menu_item(
+                    label="Connect",
+                    callback=connect_callback,
+                )
 
             with group(horizontal=True):
                 # Left panel container
@@ -143,4 +142,3 @@ class UILayout:
                 callback=lambda s, d: tabbed_query_interface.create_tab(),
             )
             tabbed_query_interface.create_tab()
-

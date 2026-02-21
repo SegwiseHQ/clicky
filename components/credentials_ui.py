@@ -147,7 +147,7 @@ class CredentialsUI:
         # Close existing modal if it exists
         try:
             delete_item("connection_settings_modal")
-        except:
+        except Exception:
             pass  # Modal doesn't exist, which is fine
 
         with window(

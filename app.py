@@ -44,7 +44,10 @@ class ClickHouseClientApp:
 
         # Initialize connection manager
         self.connection_manager = ConnectionManager(
-            self.db_manager, self.credentials_manager, self.theme_manager, self.async_worker
+            self.db_manager,
+            self.credentials_manager,
+            self.theme_manager,
+            self.async_worker,
         )
 
         # Initialize credentials UI

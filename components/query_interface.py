@@ -5,8 +5,8 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass, field
-from typing import Callable, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from dearpygui.dearpygui import *
 
@@ -18,13 +18,15 @@ from icon_manager import icon_manager
 class QueryInterface:
     """Manages the query interface and results display."""
 
-    def __init__(self, db_manager: DatabaseManager, theme_manager=None, async_worker=None):
+    def __init__(
+        self, db_manager: DatabaseManager, theme_manager=None, async_worker=None
+    ):
         self.db_manager = db_manager
         self.theme_manager = theme_manager
         self.async_worker = async_worker
-        self.current_table: Optional[str] = None
+        self.current_table: str | None = None
         self.table_counter = 0
-        self.status_callback: Optional[Callable[[str, bool], None]] = None
+        self.status_callback: Callable[[str, bool], None] | None = None
         self.table_theme = None
         self.loading_indicator = None
         self.loading_animation_running = False
@@ -40,14 +42,11 @@ class QueryInterface:
             self.table_theme = self.theme_manager.get_theme("table_enhanced")
         else:
             # Fallback theme creation
-            with theme() as self.table_theme:
-                with theme_component(mvTable):
-                    add_theme_style(
-                        mvStyleVar_CellPadding, 8, 8
-                    )  # Increase cell padding
-                    add_theme_style(
-                        mvStyleVar_ItemSpacing, 0, 4
-                    )  # Add vertical spacing between items
+            with theme() as self.table_theme, theme_component(mvTable):
+                add_theme_style(mvStyleVar_CellPadding, 8, 8)  # Increase cell padding
+                add_theme_style(
+                    mvStyleVar_ItemSpacing, 0, 4
+                )  # Add vertical spacing between items
 
     def set_status_callback(self, callback: Callable[[str, bool], None]):
         """Set callback for status messages."""
@@ -129,9 +128,7 @@ class QueryInterface:
             self.last_column_names = None
             self._hide_save_json_button()
             if self.status_callback:
-                self.status_callback(
-                    "Query executed successfully (no results)", False
-                )
+                self.status_callback("Query executed successfully (no results)", False)
             return
 
         column_names = result.column_names
@@ -160,9 +157,7 @@ class QueryInterface:
                         str(cell_value) if cell_value is not None else "NULL"
                     )
 
-                    cell_tag = (
-                        f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
-                    )
+                    cell_tag = f"query_cell_{self.table_counter}_{row_idx}_{col_idx}"
 
                     with table_cell():
                         add_input_text(
@@ -255,10 +250,10 @@ class QueryInterface:
             column_tag = f"col_{self.current_table}_{col}"
             try:
                 configure_item(column_tag, width=350)
-            except:
+            except Exception:
                 try:
                     set_item_width(column_tag, 350)
-                except:
+                except Exception:
                     pass
 
     def _copy_cell_to_clipboard(self, sender, app_data, user_data):
@@ -280,12 +275,12 @@ class QueryInterface:
         elif isinstance(val, bytes):
             try:
                 cell_value = val.decode("utf-8", errors="replace")
-            except:
+            except Exception:
                 cell_value = str(val)
         elif isinstance(val, str):
             try:
                 cell_value = val.encode("utf-8", errors="replace").decode("utf-8")
-            except:
+            except Exception:
                 cell_value = str(val)
         else:
             cell_value = str(val)
@@ -341,7 +336,7 @@ class QueryInterface:
                     potential_tag = f"loading_indicator_{i}"
                     if does_item_exist(potential_tag):
                         delete_item(potential_tag)
-            except:
+            except Exception:
                 pass
 
             self.loading_indicator = f"loading_indicator_{int(time.time())}"
@@ -590,7 +585,7 @@ class QueryInterface:
                         row_dict[column_name] = cell_value.decode(
                             "utf-8", errors="replace"
                         )
-                    except:
+                    except Exception:
                         row_dict[column_name] = str(cell_value)
                 else:
                     row_dict[column_name] = cell_value
@@ -618,11 +613,11 @@ class QueryTabState:
     results_window_tag: str
 
     query_running: bool = False
-    current_table_tag: Optional[str] = None
+    current_table_tag: str | None = None
     table_counter: int = 0
-    last_query_results: Optional[list] = None
-    last_column_names: Optional[list] = None
-    loading_indicator: Optional[str] = None
+    last_query_results: list | None = None
+    last_column_names: list | None = None
+    loading_indicator: str | None = None
     loading_animation_running: bool = False
 
 
@@ -645,7 +640,7 @@ class TabbedQueryInterface:
         self.db_manager = db_manager  # used only for get_table_columns() (metadata)
         self.theme_manager = theme_manager
         self.async_worker = async_worker
-        self.status_callback: Optional[Callable[[str, bool], None]] = None
+        self.status_callback: Callable[[str, bool], None] | None = None
 
         self._tabs: dict[int, QueryTabState] = {}
         self._tab_counter = 0
@@ -656,10 +651,9 @@ class TabbedQueryInterface:
         if self.theme_manager:
             self.table_theme = self.theme_manager.get_theme("table_enhanced")
         else:
-            with theme() as self.table_theme:
-                with theme_component(mvTable):
-                    add_theme_style(mvStyleVar_CellPadding, 8, 8)
-                    add_theme_style(mvStyleVar_ItemSpacing, 0, 4)
+            with theme() as self.table_theme, theme_component(mvTable):
+                add_theme_style(mvStyleVar_CellPadding, 8, 8)
+                add_theme_style(mvStyleVar_ItemSpacing, 0, 4)
 
     def set_status_callback(self, callback: Callable[[str, bool], None]):
         self.status_callback = callback
@@ -672,9 +666,7 @@ class TabbedQueryInterface:
         """Create a new query tab. Returns tab_id, or -1 if at limit."""
         if len(self._tabs) >= MAX_QUERY_TABS:
             if self.status_callback:
-                self.status_callback(
-                    f"Maximum of {MAX_QUERY_TABS} tabs allowed", True
-                )
+                self.status_callback(f"Maximum of {MAX_QUERY_TABS} tabs allowed", True)
             return -1
 
         tab_id = self._tab_counter
@@ -869,9 +861,7 @@ class TabbedQueryInterface:
             if does_item_exist(state.save_btn_tag):
                 configure_item(state.save_btn_tag, show=False)
             if self.status_callback:
-                self.status_callback(
-                    "Query executed successfully (no results)", False
-                )
+                self.status_callback("Query executed successfully (no results)", False)
             return
 
         column_names = result.column_names
@@ -1154,9 +1144,7 @@ class TabbedQueryInterface:
         column_types = {}
         try:
             query_lower = query.lower().strip()
-            from_match = re.search(
-                r"\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)", query_lower
-            )
+            from_match = re.search(r"\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)", query_lower)
             if from_match:
                 table_name = from_match.group(1)
                 try:

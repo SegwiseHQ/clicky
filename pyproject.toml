@@ -14,4 +14,30 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "ruff>=0.9.6",
+    "pre-commit>=4.1.0",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+exclude = [".venv", "venv", "__pycache__", ".ruff_cache", "dist", "build"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "SIM108",  # ternary operator
+    "SIM105",  # contextlib.suppress — too noisy for DearPyGUI try/except patterns
+    "SIM117",  # combine with statements — DearPyGUI context managers need nesting
+    "F403",    # star imports (DearPyGUI pattern)
+    "F405",    # may be undefined from star imports
+    "E501",    # line too long — ruff format handles code; comments/docstrings are fine
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["components"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

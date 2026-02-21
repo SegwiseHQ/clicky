@@ -22,7 +22,7 @@ config_mock.DEFAULT_QUERY_RETRIES = 2
 sys.modules["config"] = config_mock
 
 # Now import the database module
-import database
+import database  # noqa: E402
 
 
 class TestDatabaseManager(unittest.TestCase):
