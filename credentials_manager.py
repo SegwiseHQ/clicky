@@ -2,7 +2,6 @@
 
 import json
 import os
-from typing import Dict, List, Optional, Tuple
 
 from config import CREDENTIALS_FILE
 from database import decrypt_password, encrypt_password
@@ -30,7 +29,7 @@ class CredentialsManager:
         username: str,
         password: str,
         database: str,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Save named credentials to file.
 
@@ -78,7 +77,7 @@ class CredentialsManager:
         except Exception as e:
             return False, f"Failed to save credentials: {str(e)}"
 
-    def load_credentials(self, name: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
+    def load_credentials(self, name: str) -> tuple[bool, dict[str, str] | None, str]:
         """
         Load specific named credentials from file.
 
@@ -110,7 +109,7 @@ class CredentialsManager:
         except Exception as e:
             return False, None, f"Failed to load credentials: {str(e)}"
 
-    def get_credential_names(self) -> List[str]:
+    def get_credential_names(self) -> list[str]:
         """
         Get list of all saved credential names.
 
@@ -120,10 +119,10 @@ class CredentialsManager:
         try:
             all_credentials = self._load_all_credentials()
             return list(all_credentials.keys())
-        except:
+        except Exception:
             return []
 
-    def delete_credentials(self, name: str) -> Tuple[bool, str]:
+    def delete_credentials(self, name: str) -> tuple[bool, str]:
         """
         Delete named credentials.
 
@@ -159,7 +158,7 @@ class CredentialsManager:
         except Exception as e:
             return False, f"Failed to delete credentials: {str(e)}"
 
-    def _load_all_credentials(self) -> Dict[str, Dict[str, str]]:
+    def _load_all_credentials(self) -> dict[str, dict[str, str]]:
         """
         Load all credentials from file.
 
@@ -170,7 +169,7 @@ class CredentialsManager:
             return {}
 
         try:
-            with open(self.credentials_file, "r") as f:
+            with open(self.credentials_file) as f:
                 data = json.load(f)
 
             # Handle migration from old single-credential format
@@ -184,7 +183,7 @@ class CredentialsManager:
             return {}
 
     # Legacy methods for backward compatibility
-    def load_credentials_legacy(self) -> Tuple[bool, Optional[Dict[str, str]], str]:
+    def load_credentials_legacy(self) -> tuple[bool, dict[str, str] | None, str]:
         """
         Load best available credentials (prioritize cloud/remote over localhost).
 
@@ -219,10 +218,9 @@ class CredentialsManager:
                             name  # Keep as fallback if no better option found
                         )
                 elif (
-                    best_name is None and fallback_name is None
+                    best_name is None and fallback_name is None and has_valid_password
                 ):  # Use first valid credential as ultimate fallback
-                    if has_valid_password:
-                        fallback_name = name
+                    fallback_name = name
 
         # Use best found credential, or fallback if no ideal one exists
         chosen_name = best_name or fallback_name
@@ -236,7 +234,7 @@ class CredentialsManager:
 
     def save_credentials_legacy(
         self, host: str, port: str, username: str, password: str, database: str
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Save credentials with default name (for backward compatibility).
         """

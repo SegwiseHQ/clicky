@@ -130,7 +130,7 @@ class TestMainModuleStructure(unittest.TestCase):
     def test_module_has_shebang(self):
         """Test that the module has a proper shebang line."""
         with open(
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py"), "r"
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py")
         ) as f:
             first_line = f.readline().strip()
         self.assertEqual(first_line, "#!/usr/bin/env python3")

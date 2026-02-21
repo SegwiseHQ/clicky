@@ -1,13 +1,14 @@
 """Data Explorer component for ClickHouse Client."""
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
 
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_EXPLORER_TABS, MAX_ROWS_LIMIT
+from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_EXPLORER_TABS
 from database import DatabaseManager
+
 
 class DataExplorer:
     """Manages the data explorer interface and functionality for a single tab."""
@@ -22,12 +23,12 @@ class DataExplorer:
         self.db_manager = db_manager
         self.theme_manager = theme_manager
         self.async_worker = async_worker
-        self.current_table: Optional[str] = None
-        self.filters: Dict[str, str] = {}
+        self.current_table: str | None = None
+        self.filters: dict[str, str] = {}
         self.table_theme = None
         self.selected_row_data = None
         self.current_column_names = []
-        self.sort_column: Optional[str] = None
+        self.sort_column: str | None = None
         self.sort_ascending: bool = True
         self._refresh_seq = 0
         self._last_status_callback = None
@@ -49,10 +50,9 @@ class DataExplorer:
         if self.theme_manager:
             self.table_theme = self.theme_manager.get_theme("table_enhanced")
         else:
-            with theme() as self.table_theme:
-                with theme_component(mvTable):
-                    add_theme_style(mvStyleVar_CellPadding, 8, 8)
-                    add_theme_style(mvStyleVar_ItemSpacing, 0, 4)
+            with theme() as self.table_theme, theme_component(mvTable):
+                add_theme_style(mvStyleVar_CellPadding, 8, 8)
+                add_theme_style(mvStyleVar_ItemSpacing, 0, 4)
 
     def create_ui(self):
         """Build WHERE input, buttons, and data panels under the current DPG parent (a tab_item).
@@ -109,33 +109,35 @@ class DataExplorer:
             )
 
         # Data window with horizontal split — fills remaining vertical space
-        with child_window(
-            label="Data", tag=self.data_window_tag, border=True, height=-1
+        with (
+            child_window(
+                label="Data", tag=self.data_window_tag, border=True, height=-1
+            ),
+            group(horizontal=True, tag=self.data_layout_tag),
         ):
-            with group(horizontal=True, tag=self.data_layout_tag):
-                # Left panel: Main data table
-                with child_window(
-                    label="Table Data",
-                    tag=self.main_table_tag,
-                    border=True,
-                    width=-410,
-                    height=-1,
-                ):
-                    add_text("Loading data...", color=(128, 128, 128))
+            # Left panel: Main data table
+            with child_window(
+                label="Table Data",
+                tag=self.main_table_tag,
+                border=True,
+                width=-410,
+                height=-1,
+            ):
+                add_text("Loading data...", color=(128, 128, 128))
 
-                # Right panel: Row details (initially visible)
-                with child_window(
-                    label="Row Details",
-                    tag=self.row_details_tag,
-                    border=True,
-                    width=400,
-                    height=-1,
-                    show=True,
-                ):
-                    add_text(
-                        "Select a row to view details",
-                        color=(128, 128, 128),
-                    )
+            # Right panel: Row details (initially visible)
+            with child_window(
+                label="Row Details",
+                tag=self.row_details_tag,
+                border=True,
+                width=400,
+                height=-1,
+                show=True,
+            ):
+                add_text(
+                    "Select a row to view details",
+                    color=(128, 128, 128),
+                )
 
     def load_table(self, table_name: str, status_callback=None) -> bool:
         """Load a table into this explorer tab (replaces open_explorer)."""
@@ -241,7 +243,9 @@ class DataExplorer:
         if self.async_worker:
             self.async_worker.run_async(
                 task=lambda: self._fetch_data_task(query, table_name),
-                on_done=lambda result: self._on_data_ready(result, seq, status_callback),
+                on_done=lambda result: self._on_data_ready(
+                    result, seq, status_callback
+                ),
                 on_error=lambda e: self._on_data_error(e, seq, status_callback),
             )
         else:
@@ -289,9 +293,7 @@ class DataExplorer:
         delete_item(self.main_table_tag, children_only=True)
 
         if not result.result_rows:
-            add_text(
-                "No data found", parent=self.main_table_tag, color=(128, 128, 128)
-            )
+            add_text("No data found", parent=self.main_table_tag, color=(128, 128, 128))
             self._clear_row_details()
             return
 
@@ -525,7 +527,7 @@ class DataExplorer:
             )
 
             for col_idx, (column_name, value) in enumerate(
-                zip(self.current_column_names, row_data)
+                zip(self.current_column_names, row_data, strict=False)
             ):
                 with table_row(parent=details_table_tag):
                     add_selectable(
@@ -615,7 +617,7 @@ class TabbedExplorerInterface:
         self.db_manager = db_manager
         self.theme_manager = theme_manager
         self.async_worker = async_worker
-        self.status_callback: Optional[Callable[[str, bool], None]] = None
+        self.status_callback: Callable[[str, bool], None] | None = None
 
         self._tabs: dict[int, ExplorerTabState] = {}
         self._tab_counter = 0
@@ -718,8 +720,7 @@ class TabbedExplorerInterface:
         closed_ids = [
             tab_id
             for tab_id, state in list(self._tabs.items())
-            if not does_item_exist(state.tab_tag)
-            or not is_item_shown(state.tab_tag)
+            if not does_item_exist(state.tab_tag) or not is_item_shown(state.tab_tag)
         ]
         for tab_id in closed_ids:
             self._close_tab_state(tab_id)

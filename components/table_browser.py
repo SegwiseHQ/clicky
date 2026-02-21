@@ -1,7 +1,7 @@
 """Table browser component for ClickHouse Client."""
 
 import time
-from typing import Callable, Dict, Optional, Set
+from collections.abc import Callable
 
 from dearpygui.dearpygui import *
 
@@ -22,11 +22,11 @@ class TableBrowser:
     def __init__(self, db_manager: DatabaseManager, theme_manager=None):
         self.db_manager = db_manager
         self.theme_manager = theme_manager
-        self.expanded_tables: Set[str] = set()
-        self.table_columns: Dict[str, list] = {}
-        self.last_click_time: Dict[str, float] = {}
-        self.double_click_callback: Optional[Callable[[str], None]] = None
-        self.status_callback: Optional[Callable[[str, bool], None]] = None
+        self.expanded_tables: set[str] = set()
+        self.table_columns: dict[str, list] = {}
+        self.last_click_time: dict[str, float] = {}
+        self.double_click_callback: Callable[[str], None] | None = None
+        self.status_callback: Callable[[str, bool], None] | None = None
 
     def set_double_click_callback(self, callback: Callable[[str], None]):
         """Set callback for table double-click events."""
@@ -108,7 +108,7 @@ class TableBrowser:
         # Get current scroll position
         try:
             scroll_y = get_y_scroll("tables_list")
-        except:
+        except Exception:
             scroll_y = 0
 
         # Rebuild the list
@@ -117,7 +117,7 @@ class TableBrowser:
         # Restore scroll position
         try:
             set_y_scroll("tables_list", scroll_y)
-        except:
+        except Exception:
             pass
 
     def refresh_tables(self):

@@ -37,37 +37,37 @@ TABLE_BUTTON_HEIGHT = 30
 # Data Explorer panel settings
 
 # Colors (RGB tuples) - Enhanced color palette
-COLOR_SUCCESS = (34, 197, 94)   # Slightly brighter green
+COLOR_SUCCESS = (34, 197, 94)  # Slightly brighter green
 COLOR_ERROR = (220, 53, 69)  # Bootstrap danger red
 COLOR_WARNING = (255, 193, 7)  # Bootstrap warning yellow
 COLOR_INFO = (23, 162, 184)  # Bootstrap info blue
 COLOR_PRIMARY = (99, 102, 241)  # Indigo-500 (modern)
 
 # Table and UI element colors
-COLOR_COLUMN = (34, 197, 94)   # Match success green
+COLOR_COLUMN = (34, 197, 94)  # Match success green
 COLOR_TABLE_HEADER = (20, 20, 24)  # Match surface
 COLOR_TABLE_ROW_ALT = (26, 26, 32)  # Very dark stripe (fix: was near-white)
-COLOR_CONNECTED = (34, 197, 94)   # Match success green
+COLOR_CONNECTED = (34, 197, 94)  # Match success green
 COLOR_DISCONNECTED = (220, 53, 69)  # Connection indicator red
 
 # Background and text colors
-COLOR_BACKGROUND = (13, 13, 15)   # True dark background
-COLOR_SURFACE = (20, 20, 24)      # Darker panel surface
+COLOR_BACKGROUND = (13, 13, 15)  # True dark background
+COLOR_SURFACE = (20, 20, 24)  # Darker panel surface
 COLOR_SURFACE_ELEVATED = (28, 28, 36)  # Inputs, elevated cards
-COLOR_TEXT_PRIMARY = (226, 226, 231)   # Slightly warmer white
+COLOR_TEXT_PRIMARY = (226, 226, 231)  # Slightly warmer white
 COLOR_TEXT_SECONDARY = (113, 113, 122)  # More muted secondary text
-COLOR_ACCENT = (79, 82, 198)      # Indigo-600 (deeper)
+COLOR_ACCENT = (79, 82, 198)  # Indigo-600 (deeper)
 
 # Button colors - Desaturated palette for better contrast balance
-COLOR_BUTTON_PRIMARY = (99, 102, 241)   # Indigo-500 - Connect button
+COLOR_BUTTON_PRIMARY = (99, 102, 241)  # Indigo-500 - Connect button
 COLOR_BUTTON_SUCCESS = (16, 185, 129)  # #10B981 (emerald-500) - Save As button
 COLOR_BUTTON_DANGER = (239, 68, 68)  # #EF4444 (red-500 toned down) - Delete button
 COLOR_BUTTON_SECONDARY = (42, 42, 54)  # Dark ghost button
 
 # Special element colors
 COLOR_EXPLORER_TITLE = (180, 180, 195)  # Softer header
-COLOR_STATUS_BG = (20, 20, 24)    # Match surface (remove dated green banner)
-COLOR_BORDER = (37, 37, 46)       # Subtle, near-invisible borders
+COLOR_STATUS_BG = (20, 20, 24)  # Match surface (remove dated green banner)
+COLOR_BORDER = (37, 37, 46)  # Subtle, near-invisible borders
 
 # Icons and symbols (Font Awesome Unicode)
 

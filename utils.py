@@ -63,7 +63,9 @@ class FontManager:
                     print(
                         f"Loading bundled JetBrains Mono font from: {bundled_font_path}"
                     )
-                    monospace_font = FontManager._load_font_with_icons(bundled_font_path, 16)
+                    monospace_font = FontManager._load_font_with_icons(
+                        bundled_font_path, 16
+                    )
                     bind_font(monospace_font)
                     return True
                 except Exception as e:
@@ -89,7 +91,9 @@ class FontManager:
                         print(
                             f"Loading system fallback font {font_name} from: {font_path}"
                         )
-                        monospace_font = FontManager._load_font_with_icons(font_path, 14)
+                        monospace_font = FontManager._load_font_with_icons(
+                            font_path, 14
+                        )
                         bind_font(monospace_font)
                         return True
                 except Exception as e:
@@ -109,7 +113,7 @@ class UIHelpers:
         """Safely get value from a UI component."""
         try:
             return get_value(tag) or default
-        except:
+        except Exception:
             return default
 
     @staticmethod
