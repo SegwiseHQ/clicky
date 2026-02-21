@@ -1,8 +1,15 @@
+
+# Contributing
+
+1. Create a virtual env
+2. Instal uv using `pip install uv`
+3. Setup pre-commit hook `uv run pre-commit install`
+
 # Creating a binary
 
 pyinstaller --onefile --windowed main.py --icon=./assets/icons/app.icns --add-data "assets:assets" --name=clicky
 
-  
+
 
 # Why build a clickhouse client?
 
