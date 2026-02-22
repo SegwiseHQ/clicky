@@ -1,22 +1,9 @@
 
-# Contributing
-
-1. Create a virtual env
-2. Instal uv using `pip install uv`
-3. Setup pre-commit hook `uv run pre-commit install`
-
-# Creating a binary
-
-pyinstaller --onefile --windowed main.py --icon=./assets/icons/app.icns --add-data "assets:assets" --name=clicky
-
-
-
 # Why build a clickhouse client?
 
 Need a free desktop client for clickhouse. Was using DBeaver till now, but a recent update broke clickhouse connection. There was no other desktop client which was free.
 
-<img width="1195" height="799" alt="Screenshot 2026-02-19 at 11 00 06 PM" src="https://github.com/user-attachments/assets/582d0c5c-06a0-488f-8a58-fc6332343af3" />
-
+<img width="1195" height="799" alt="Screenshot 2026-02-19 at 11 00 06 PM" src="https://github.com/user-attachments/assets/582d0c5c-06a0-488f-8a58-fc6332343af3" />
 
 # Features
 
@@ -33,6 +20,65 @@ Need a free desktop client for clickhouse. Was using DBeaver till now, but a rec
 - Click on a column header to sort by the column.
 
 - Explorer view is read only.
+
+# Local Setup
+
+### Prerequisites
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+### Create a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### Install dependencies
+
+Using uv (recommended):
+```bash
+pip install uv
+uv pip install -r requirements.txt
+```
+
+Or using pip:
+```bash
+pip install -r requirements.txt
+```
+
+### Install pre-commit hooks
+
+```bash
+pre-commit install
+```
+
+This runs [ruff](https://docs.astral.sh/ruff/) (linter + formatter) and a few standard checks (trailing whitespace, YAML/JSON/TOML validation, large file guard) on every commit.
+
+### Run the app
+
+```bash
+python main.py
+```
+
+### Run tests
+
+```bash
+pytest
+```
+
+### Run linter / formatter manually
+
+```bash
+ruff check --fix .
+ruff format .
+```
+
+# Creating a binary
+
+```bash
+pyinstaller --onefile --windowed main.py --icon=./assets/icons/app.icns --add-data "assets:assets" --name=clicky
+```
 
 # Note
 - This has only been tested on a mac device so far but theoretically should work for any linux device.
