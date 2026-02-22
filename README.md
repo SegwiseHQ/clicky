@@ -21,6 +21,15 @@ Need a free desktop client for clickhouse. Was using DBeaver till now, but a rec
 
 - Explorer view is read only.
 
+# Installation
+
+### Homebrew (macOS)
+
+```bash
+brew tap SegwiseHQ/tap
+brew install --cask clicky
+```
+
 # Local Setup
 
 ### Prerequisites

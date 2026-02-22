@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build app bundle
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          pyinstaller clicky.spec --noconfirm
+          if [ ! -d "dist/clicky.app" ]; then
+            echo "Build failed — dist/clicky.app not found."
+            exit 1
+          fi
+
+      - name: Package ZIP
+        run: |
+          cd dist
+          zip -r ../clicky-macos-${{ matrix.arch }}.zip clicky.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clicky-macos-${{ matrix.arch }}
+          path: clicky-macos-${{ matrix.arch }}.zip
+
+  release:
+    name: Create GitHub Release
+    needs: build-macos
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          shasum -a 256 *.zip > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*.zip
+            artifacts/checksums.txt
+
+  update-cask:
+    name: Update Homebrew Cask
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download ARM64 ZIP for SHA
+        run: |
+          curl -L -o clicky-macos-arm64.zip \
+            "https://github.com/SegwiseHQ/clicky/releases/download/${GITHUB_REF_NAME}/clicky-macos-arm64.zip"
+          curl -L -o clicky-macos-x86_64.zip \
+            "https://github.com/SegwiseHQ/clicky/releases/download/${GITHUB_REF_NAME}/clicky-macos-x86_64.zip"
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          echo "arm64=$(shasum -a 256 clicky-macos-arm64.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "x86_64=$(shasum -a 256 clicky-macos-x86_64.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: SegwiseHQ/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Cask formula
+        run: |
+          cat > homebrew-tap/Casks/clicky.rb << CASK_EOF
+          cask "clicky" do
+            version "${{ steps.version.outputs.version }}"
+
+            on_arm do
+              sha256 "${{ steps.sha.outputs.arm64 }}"
+              url "https://github.com/SegwiseHQ/clicky/releases/download/v#{version}/clicky-macos-arm64.zip"
+            end
+
+            on_intel do
+              sha256 "${{ steps.sha.outputs.x86_64 }}"
+              url "https://github.com/SegwiseHQ/clicky/releases/download/v#{version}/clicky-macos-x86_64.zip"
+            end
+
+            name "Clicky"
+            desc "Free, lightweight ClickHouse desktop client"
+            homepage "https://github.com/SegwiseHQ/clicky"
+
+            app "clicky.app"
+
+            zap trash: [
+              "~/Library/Application Support/clicky",
+            ]
+          end
+          CASK_EOF
+
+      - name: Commit and push Cask update
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/clicky.rb
+          git commit -m "Update clicky to ${{ steps.version.outputs.version }}"
+          git push
