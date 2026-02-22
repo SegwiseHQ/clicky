@@ -26,7 +26,7 @@ class ClickHouseClientApp:
         # Initialize DearPyGUI first
         create_context()
         create_viewport(
-            title=f"{icon_manager.get('database')} ClickHouse Client",
+            title=f"{icon_manager.get('database')} Clicky",
             width=MAIN_WINDOW_WIDTH,
             height=MAIN_WINDOW_HEIGHT,
         )
@@ -188,6 +188,7 @@ class ClickHouseClientApp:
         # threads can safely update the UI without thread-safety issues.
         while is_dearpygui_running():
             self.async_worker.process_pending()
+            self.ui_layout.splitter.update()
             self.tabbed_query_interface.poll_closed_tabs()
             self.tabbed_explorer.poll_closed_tabs()
             render_dearpygui_frame()

@@ -2,6 +2,7 @@
 
 from dearpygui.dearpygui import *
 
+from components.splitter import VerticalSplitter
 from config import TABLES_PANEL_WIDTH
 from icon_manager import icon_manager
 from utils import FontManager
@@ -14,12 +15,13 @@ class UILayout:
         """Initialize UI layout manager."""
         self.theme_manager = theme_manager
         self.table_browser_ui = table_browser_ui
+        self.splitter = VerticalSplitter()
 
     def setup_main_ui(self, show_connection_settings_callback, connect_callback):
         """Setup the main user interface."""
         # Main window setup
         with window(
-            label="ClickHouse Client",
+            label="Clicky",
             tag="main_window",
             no_resize=True,
             no_move=True,
@@ -39,7 +41,7 @@ class UILayout:
 
             with group(horizontal=True):
                 # Left panel container
-                with group(width=TABLES_PANEL_WIDTH):
+                with group(width=TABLES_PANEL_WIDTH, tag="left_panel"):
                     # Header and search bar (fixed at top)
                     add_text(
                         "Database Tables",
@@ -101,6 +103,9 @@ class UILayout:
                                 self.theme_manager.get_theme("status_window"),
                             )
                         self._setup_status_section()
+
+                # Draggable splitter
+                self.splitter.create(TABLES_PANEL_WIDTH)
 
                 # Right panel for query and results
                 with group(width=-1):
