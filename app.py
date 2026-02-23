@@ -3,7 +3,7 @@
 from dearpygui.dearpygui import *
 
 from async_worker import AsyncWorker
-from components import StatusManager, TableBrowser
+from components import StatusManager
 from components.connection_manager import ConnectionManager
 from components.credentials_ui import CredentialsUI
 from components.query_interface import TabbedQueryInterface
@@ -58,7 +58,6 @@ class ClickHouseClientApp:
         # Set up credentials UI callback
         self.credentials_ui.on_credentials_saved = self._handle_credentials_saved
 
-        self.table_browser = TableBrowser(self.db_manager, self.theme_manager)
         self.table_browser_ui = TableBrowserUI(
             self.db_manager,
             self.credentials_manager,
@@ -87,18 +86,10 @@ class ClickHouseClientApp:
         # Set up callbacks for connection manager
         self.connection_manager.on_connect_success = self._handle_connect_success
 
-        # Initialize stored credentials for auto-connect
-        self.stored_credentials = None
-
-        # Link stored credentials between app and connection manager
-        self._sync_stored_credentials()
-
         # Initialize status manager with theme
         StatusManager.set_theme_manager(self.theme_manager)
 
         # Set up callbacks
-        self.table_browser.set_double_click_callback(self.tabbed_explorer.open_tab)
-        self.table_browser.set_status_callback(StatusManager.show_status)
         self.table_browser_ui.set_double_click_callback(self.tabbed_explorer.open_tab)
         self.table_browser_ui.connection_callback = (
             self.connection_manager.connect_callback
@@ -138,19 +129,6 @@ class ClickHouseClientApp:
         except Exception as e:
             print(f"[DEBUG] Error in connect success handler: {str(e)}")
 
-    def _sync_stored_credentials(self):
-        """Sync stored credentials between app and connection manager."""
-        # This can be called to sync credentials when they change
-        if self.stored_credentials:
-            self.connection_manager.stored_credentials = self.stored_credentials
-        elif (
-            hasattr(self.table_browser_ui, "stored_credentials")
-            and self.table_browser_ui.stored_credentials
-        ):
-            self.connection_manager.stored_credentials = (
-                self.table_browser_ui.stored_credentials
-            )
-
     def _handle_credentials_saved(self):
         """Handle tasks after credentials are saved."""
         try:
@@ -158,14 +136,6 @@ class ClickHouseClientApp:
             self.table_browser_ui.show_saved_connections()
         except Exception as e:
             print(f"[DEBUG] Error in credentials saved handler: {str(e)}")
-
-    def filter_tables_callback(self, sender, app_data):
-        """Delegate table filtering to TableBrowserUI component."""
-        return self.table_browser_ui.filter_tables_callback(sender, app_data)
-
-    def select_table_callback(self, sender, app_data):
-        """Delegate table selection to TableBrowserUI component."""
-        return self.table_browser_ui.select_table_callback(sender, app_data)
 
     def run(self):
         """Run the application."""
@@ -176,10 +146,6 @@ class ClickHouseClientApp:
 
         # Use connection manager for auto-loading credentials
         self.connection_manager.auto_load_and_connect()
-
-        # Sync credentials after auto-loading
-        if self.connection_manager.stored_credentials:
-            self.stored_credentials = self.connection_manager.stored_credentials
 
         # Show saved connections in the left panel
         self.table_browser_ui.show_saved_connections()

@@ -290,11 +290,6 @@ class ConnectionPool:
         with self._lock:
             self._clients.pop(tab_id, None)
 
-    def release_all(self) -> None:
-        """Clear all clients (called on disconnect)."""
-        with self._lock:
-            self._clients.clear()
-
 
 def encrypt_password(password: str) -> str:
     """Encrypt password for storage."""

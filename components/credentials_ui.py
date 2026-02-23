@@ -2,6 +2,7 @@
 
 from dearpygui.dearpygui import *
 
+from components.status_manager import StatusManager
 from config import (
     COLOR_TEXT_SECONDARY,
     DEFAULT_DATABASE,
@@ -10,7 +11,6 @@ from config import (
     DEFAULT_USERNAME,
 )
 from credentials_manager import CredentialsManager
-from ui_components import StatusManager
 from utils import UIHelpers
 
 
