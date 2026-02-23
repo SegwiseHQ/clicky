@@ -14,7 +14,6 @@ from config import DEFAULT_TAB_LABEL, MAX_QUERY_TABS, QUERY_INPUT_HEIGHT
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 
-
 # ---------------------------------------------------------------------------
 # Per-tab state
 # ---------------------------------------------------------------------------

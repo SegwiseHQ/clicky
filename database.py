@@ -291,7 +291,6 @@ class ConnectionPool:
             self._clients.pop(tab_id, None)
 
 
-
 def encrypt_password(password: str) -> str:
     """Encrypt password for storage."""
     if not password:
