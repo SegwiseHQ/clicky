@@ -237,21 +237,13 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FrameRounding, 8)
                 add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
-        # Connection modal input theme (light gray background for clarity)
+        # Connection modal input theme (dark theme matching main UI)
         with theme() as self.themes["connection_input"]:
             with theme_component(mvInputText):
-                add_theme_color(
-                    mvThemeCol_FrameBg, (220, 220, 220, 255)
-                )  # More noticeable light gray background
-                add_theme_color(
-                    mvThemeCol_FrameBgHovered, (200, 200, 200, 255)
-                )  # Darker gray on hover
-                add_theme_color(
-                    mvThemeCol_FrameBgActive, (180, 180, 180, 255)
-                )  # Even darker gray when active
-                add_theme_color(
-                    mvThemeCol_Text, (30, 30, 30, 255)
-                )  # Dark text for contrast
+                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE_ELEVATED)
+                add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
+                add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
+                add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
                 add_theme_style(mvStyleVar_FrameRounding, 8)
                 add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
@@ -266,21 +258,13 @@ class ThemeManager:
             add_theme_style(mvStyleVar_FrameRounding, 8)
             add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
-        # Connection modal combo theme (light gray background for clarity)
+        # Connection modal combo theme (dark theme matching main UI)
         with theme() as self.themes["connection_combo"]:
             with theme_component(mvCombo):
-                add_theme_color(
-                    mvThemeCol_FrameBg, (220, 220, 220, 255)
-                )  # More noticeable light gray background
-                add_theme_color(
-                    mvThemeCol_FrameBgHovered, (200, 200, 200, 255)
-                )  # Darker gray on hover
-                add_theme_color(
-                    mvThemeCol_FrameBgActive, (180, 180, 180, 255)
-                )  # Even darker gray when active
-                add_theme_color(
-                    mvThemeCol_Text, (255, 255, 255, 255)
-                )  # White text for better contrast
+                add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE_ELEVATED)
+                add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
+                add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
+                add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
                 add_theme_color(mvThemeCol_Button, COLOR_ACCENT)
                 add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
                 add_theme_style(mvStyleVar_FrameRounding, 8)

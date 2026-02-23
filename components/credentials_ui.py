@@ -2,7 +2,13 @@
 
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_DATABASE, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_USERNAME
+from config import (
+    COLOR_TEXT_SECONDARY,
+    DEFAULT_DATABASE,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    DEFAULT_USERNAME,
+)
 from credentials_manager import CredentialsManager
 from ui_components import StatusManager
 from utils import UIHelpers
@@ -155,10 +161,10 @@ class CredentialsUI:
             modal=True,
             tag="connection_settings_modal",
             width=700,
-            height=500,
+            height=560,
         ):
             # Credential management section
-            add_text("Saved Connections:", color=(220, 220, 220))
+            add_text("Saved Connections:")
             add_combo(
                 label="",
                 tag="credentials_combo",
@@ -300,6 +306,13 @@ class CredentialsUI:
                     bind_item_theme(
                         "connect_button", self.theme_manager.get_theme("button_primary")
                     )
+
+            # Connection test status display area
+            add_text("Status:", color=COLOR_TEXT_SECONDARY)
+            with child_window(
+                tag="modal_status_text", height=50, border=False
+            ):
+                pass  # Content added dynamically by connection test
 
             # Auto-refresh credentials when modal opens
             self.refresh_credentials_callback(None, None)
