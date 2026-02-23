@@ -179,13 +179,6 @@ class DataExplorer:
         self.refresh_data(status_callback)
         return True
 
-    def _setup_filters(self):
-        """Setup WHERE filter control for the current table."""
-        try:
-            configure_item(self.where_tag, callback=self._on_where_change)
-        except Exception:
-            pass
-
     def _on_where_change(self, sender, app_data):
         """Handle WHERE condition change - refresh data when Enter is pressed."""
         self.refresh_data()
@@ -432,30 +425,6 @@ class DataExplorer:
         self._clear_row_details()
         if status_callback:
             status_callback(f"Explorer error: {str(e)}", True)
-
-    def clear_filters(self):
-        """Clear all filters in data explorer."""
-        try:
-            configure_item(self.where_tag, default_value="")
-        except Exception:
-            pass
-
-        self.sort_column = None
-        self.sort_ascending = True
-        self._clear_row_details()
-        self.refresh_data()
-
-    def _copy_cell_to_clipboard(self, sender, app_data, user_data):
-        """Copy cell content to clipboard when clicked."""
-        try:
-            cell_text = user_data if user_data else ""
-            set_clipboard_text(cell_text)
-            if self._last_status_callback:
-                self._last_status_callback(
-                    f"Copied to clipboard: {cell_text[:50]}{'...' if len(cell_text) > 50 else ''}"
-                )
-        except Exception as e:
-            print(f"Error copying to clipboard: {e}")
 
     def _format_cell_value(self, val) -> str:
         """Format a cell value for display."""

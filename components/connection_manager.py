@@ -18,7 +18,7 @@ from config import (
 )
 from credentials_manager import CredentialsManager
 from database import DatabaseManager
-from ui_components import StatusManager
+from components.status_manager import StatusManager
 from utils import UIHelpers, validate_connection_params
 
 

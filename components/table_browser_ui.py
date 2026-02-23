@@ -345,8 +345,7 @@ class TableBrowserUI:
 
     def connect_to_saved_callback(self, sender, app_data, user_data):
         """Handle clicking on a saved connection to connect to it."""
-        # Import here to avoid circular imports
-        from ui_components import StatusManager
+        from components.status_manager import StatusManager
 
         # Get connection name from user_data
         connection_name = user_data
@@ -485,7 +484,7 @@ class TableBrowserUI:
 
             # Show feedback through status manager (if available)
             try:
-                from ui_components import StatusManager
+                from components.status_manager import StatusManager
 
                 StatusManager.show_status(
                     f"Table name copied to clipboard: {table_name}", error=False
@@ -496,7 +495,7 @@ class TableBrowserUI:
 
         except Exception as e:
             try:
-                from ui_components import StatusManager
+                from components.status_manager import StatusManager
 
                 StatusManager.show_status(
                     f"Error copying table name: {str(e)}", error=True
@@ -504,12 +503,6 @@ class TableBrowserUI:
             except Exception:
                 # Fallback: print to console if StatusManager isn't available
                 print(f"Error copying table name: {str(e)}")
-
-    def clear_connection_state(self):
-        """Clear connection-related state during disconnection."""
-        self.connections_expanded.clear()
-        self.selected_table = None
-        self.active_connection_name = ""
 
     def _get_connection_display_name(self) -> str:
         """Get a display name for the current connection."""

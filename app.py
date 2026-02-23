@@ -159,14 +159,6 @@ class ClickHouseClientApp:
         except Exception as e:
             print(f"[DEBUG] Error in credentials saved handler: {str(e)}")
 
-    def filter_tables_callback(self, sender, app_data):
-        """Delegate table filtering to TableBrowserUI component."""
-        return self.table_browser_ui.filter_tables_callback(sender, app_data)
-
-    def select_table_callback(self, sender, app_data):
-        """Delegate table selection to TableBrowserUI component."""
-        return self.table_browser_ui.select_table_callback(sender, app_data)
-
     def run(self):
         """Run the application."""
         self.setup_ui()

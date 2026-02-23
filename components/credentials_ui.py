@@ -10,7 +10,7 @@ from config import (
     DEFAULT_USERNAME,
 )
 from credentials_manager import CredentialsManager
-from ui_components import StatusManager
+from components.status_manager import StatusManager
 from utils import UIHelpers
 
 
