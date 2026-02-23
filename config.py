@@ -42,8 +42,6 @@ TABLE_BUTTON_HEIGHT = 30
 # Colors (RGB tuples) - Enhanced color palette
 COLOR_SUCCESS = (34, 197, 94)  # Slightly brighter green
 COLOR_ERROR = (220, 53, 69)  # Bootstrap danger red
-COLOR_WARNING = (255, 193, 7)  # Bootstrap warning yellow
-COLOR_INFO = (23, 162, 184)  # Bootstrap info blue
 COLOR_PRIMARY = (99, 102, 241)  # Indigo-500 (modern)
 
 # Table and UI element colors

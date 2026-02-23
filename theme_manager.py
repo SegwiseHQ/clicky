@@ -14,7 +14,6 @@ from config import (
     COLOR_DISCONNECTED,
     COLOR_ERROR,
     COLOR_EXPLORER_TITLE,
-    COLOR_INFO,
     COLOR_PRIMARY,
     COLOR_STATUS_BG,
     COLOR_SUCCESS,
@@ -24,7 +23,6 @@ from config import (
     COLOR_TABLE_ROW_ALT,
     COLOR_TEXT_PRIMARY,
     COLOR_TEXT_SECONDARY,
-    COLOR_WARNING,
 )
 
 
@@ -247,17 +245,6 @@ class ThemeManager:
                 add_theme_style(mvStyleVar_FrameRounding, 8)
                 add_theme_style(mvStyleVar_FramePadding, 8, 6)
 
-        # Combo box theme (for main app)
-        with theme() as self.themes["combo_enhanced"], theme_component(mvCombo):
-            add_theme_color(mvThemeCol_FrameBg, COLOR_SURFACE)
-            add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
-            add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
-            add_theme_color(mvThemeCol_Text, COLOR_TEXT_PRIMARY)
-            add_theme_color(mvThemeCol_Button, COLOR_ACCENT)
-            add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
-            add_theme_style(mvStyleVar_FrameRounding, 8)
-            add_theme_style(mvStyleVar_FramePadding, 8, 6)
-
         # Connection modal combo theme (dark theme matching main UI)
         with theme() as self.themes["connection_combo"]:
             with theme_component(mvCombo):
@@ -284,21 +271,9 @@ class ThemeManager:
         with theme() as self.themes["error_text"], theme_component(mvText):
             add_theme_color(mvThemeCol_Text, COLOR_ERROR)
 
-        # Warning text theme
-        with theme() as self.themes["warning_text"], theme_component(mvText):
-            add_theme_color(mvThemeCol_Text, COLOR_WARNING)
-
-        # Info text theme
-        with theme() as self.themes["info_text"], theme_component(mvText):
-            add_theme_color(mvThemeCol_Text, COLOR_INFO)
-
         # Column text theme
         with theme() as self.themes["column_text"], theme_component(mvText):
             add_theme_color(mvThemeCol_Text, COLOR_SUCCESS)
-
-        # Status banner text theme
-        with theme() as self.themes["status_text"], theme_component(mvText):
-            add_theme_color(mvThemeCol_Text, (240, 240, 240))  # Light text for banner
 
     def apply_global_theme(self):
         """Apply the global theme to the application."""
