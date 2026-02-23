@@ -2,6 +2,7 @@
 
 from dearpygui.dearpygui import *
 
+from components.status_manager import StatusManager
 from config import (
     COLOR_TEXT_SECONDARY,
     DEFAULT_DATABASE,
