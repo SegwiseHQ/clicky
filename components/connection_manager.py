@@ -1,5 +1,6 @@
 """Connection management functionality for ClickHouse Client."""
 
+import time
 import traceback
 
 from dearpygui.dearpygui import *
@@ -39,6 +40,18 @@ class ConnectionManager:
 
         # Optional callbacks for additional functionality
         self.on_connect_success = None  # Called after successful connection
+
+    def _show_modal_status(self, message, error=False):
+        """Show a status message in the connection modal's status area."""
+        tag = "modal_status_text"
+        if does_item_exist(tag):
+            delete_item(tag, children_only=True)
+            color = COLOR_ERROR if error else COLOR_SUCCESS
+            text_tag = f"modal_status_{time.time()}"
+            add_text(message, parent=tag, color=color, tag=text_tag, wrap=650)
+            if self.theme_manager:
+                theme_name = "error_text" if error else "success_text"
+                bind_item_theme(text_tag, self.theme_manager.get_theme(theme_name))
 
     def get_connection_parameters(self):
         """Get connection parameters, prioritizing form values over stored credentials."""
@@ -203,7 +216,7 @@ class ConnectionManager:
     def test_credentials_callback(self, sender, data):
         """Test database credentials without establishing a persistent connection (non-blocking)."""
         UIHelpers.safe_configure_item("connect_button", enabled=False)
-        StatusManager.show_status("Testing credentials... Please wait", error=False)
+        self._show_modal_status("Testing credentials... Please wait", error=False)
 
         try:
             params = self.get_connection_parameters()
@@ -227,7 +240,7 @@ class ConnectionManager:
 
         except Exception as e:
             error_msg = f"Credential test failed:\n{str(e)}"
-            StatusManager.show_status(error_msg, error=True)
+            self._show_modal_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             if self.theme_manager:
                 UIHelpers.safe_bind_item_theme(
@@ -275,7 +288,7 @@ class ConnectionManager:
         print(f"[DEBUG] Credential test result: success={success}, message={message}")
 
         if success:
-            StatusManager.show_status(f"✓ {message}", error=False)
+            self._show_modal_status(f"✓ {message}", error=False)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_SUCCESS)
             if self.theme_manager:
                 UIHelpers.safe_bind_item_theme(
@@ -284,7 +297,7 @@ class ConnectionManager:
                 )
         else:
             error_msg = f"Credential test failed:\n{message}"
-            StatusManager.show_status(error_msg, error=True)
+            self._show_modal_status(error_msg, error=True)
             UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
             if self.theme_manager:
                 UIHelpers.safe_bind_item_theme(
@@ -298,7 +311,7 @@ class ConnectionManager:
         error_msg = (
             f"Credential test failed:\n{str(e)}\nDetails:\n{traceback.format_exc()}"
         )
-        StatusManager.show_status(error_msg, error=True)
+        self._show_modal_status(error_msg, error=True)
         UIHelpers.safe_configure_item("connection_indicator", color=COLOR_ERROR)
         if self.theme_manager:
             UIHelpers.safe_bind_item_theme(
