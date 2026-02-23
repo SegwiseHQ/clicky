@@ -309,9 +309,7 @@ class CredentialsUI:
 
             # Connection test status display area
             add_text("Status:", color=COLOR_TEXT_SECONDARY)
-            with child_window(
-                tag="modal_status_text", height=50, border=False
-            ):
+            with child_window(tag="modal_status_text", height=50, border=False):
                 pass  # Content added dynamically by connection test
 
             # Auto-refresh credentials when modal opens
