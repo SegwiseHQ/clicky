@@ -159,6 +159,120 @@ class TabbedQueryInterface:
             ):
                 pass
 
+        with popup(
+            parent=state.tab_tag,
+            mousebutton=1,
+            tag=f"tab_ctx_{state.tab_id}",
+        ):
+            add_menu_item(
+                label="Rename",
+                callback=self._make_rename_callback(state.tab_id),
+            )
+
+    def _make_rename_callback(self, tab_id: int):
+        def callback(sender, data):
+            self._show_rename_modal(tab_id)
+
+        return callback
+
+    def _show_rename_modal(self, tab_id: int):
+        state = self._tabs.get(tab_id)
+        if state is None:
+            return
+
+        modal_tag = f"rename_modal_{tab_id}"
+        input_tag = f"rename_input_{tab_id}"
+
+        if does_item_exist(modal_tag):
+            delete_item(modal_tag)
+
+        ok_btn_tag = f"rename_ok_{tab_id}"
+        cancel_btn_tag = f"rename_cancel_{tab_id}"
+
+        with window(
+            tag=modal_tag,
+            label="Rename Tab",
+            modal=True,
+            no_resize=True,
+            no_move=False,
+            width=300,
+            height=100,
+            pos=[
+                get_viewport_width() // 2 - 150,
+                get_viewport_height() // 2 - 50,
+            ],
+        ):
+            add_input_text(
+                tag=input_tag,
+                default_value=state.label,
+                width=-1,
+                on_enter=True,
+                callback=self._make_apply_rename(tab_id),
+            )
+            if self.theme_manager:
+                bind_item_theme(
+                    input_tag,
+                    self.theme_manager.get_theme("connection_input"),
+                )
+            with group(horizontal=True):
+                add_button(
+                    label="OK",
+                    tag=ok_btn_tag,
+                    callback=self._make_apply_rename(tab_id),
+                    width=80,
+                )
+                if self.theme_manager:
+                    bind_item_theme(
+                        ok_btn_tag,
+                        self.theme_manager.get_theme("button_primary"),
+                    )
+                add_button(
+                    label="Cancel",
+                    tag=cancel_btn_tag,
+                    callback=self._make_cancel_rename(tab_id),
+                    width=80,
+                )
+                if self.theme_manager:
+                    bind_item_theme(
+                        cancel_btn_tag,
+                        self.theme_manager.get_theme("button_secondary"),
+                    )
+
+        focus_item(input_tag)
+
+    def _make_apply_rename(self, tab_id: int):
+        def callback(sender, data):
+            self._apply_rename(tab_id)
+
+        return callback
+
+    def _make_cancel_rename(self, tab_id: int):
+        def callback(sender, data):
+            self._cancel_rename(tab_id)
+
+        return callback
+
+    def _apply_rename(self, tab_id: int):
+        state = self._tabs.get(tab_id)
+        if state is None:
+            return
+
+        input_tag = f"rename_input_{tab_id}"
+        modal_tag = f"rename_modal_{tab_id}"
+
+        new_label = get_value(input_tag).strip()
+        if new_label:
+            state.label = new_label
+            configure_item(state.tab_tag, label=new_label)
+
+        if does_item_exist(modal_tag):
+            delete_item(modal_tag)
+
+    def _cancel_rename(self, tab_id: int):
+        modal_tag = f"rename_modal_{tab_id}"
+        if does_item_exist(modal_tag):
+            delete_item(modal_tag)
+
     def _make_run_callback(self, tab_id: int):
         def callback(sender, data):
             self._run_query_for_tab(tab_id)
@@ -190,6 +304,9 @@ class TabbedQueryInterface:
         state = self._tabs.pop(tab_id, None)
         if state is None:
             return
+        for tag in (f"tab_ctx_{tab_id}", f"rename_modal_{tab_id}"):
+            if does_item_exist(tag):
+                delete_item(tag)
         if does_item_exist(state.tab_tag):
             delete_item(state.tab_tag)
         self.connection_pool.release(tab_id)
