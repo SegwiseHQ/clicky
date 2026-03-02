@@ -69,6 +69,11 @@ class ThemeManager:
             add_theme_color(mvThemeCol_FrameBgHovered, COLOR_BORDER)
             add_theme_color(mvThemeCol_FrameBgActive, COLOR_ACCENT)
 
+            # Title bar
+            add_theme_color(mvThemeCol_TitleBg, COLOR_SURFACE)
+            add_theme_color(mvThemeCol_TitleBgActive, COLOR_SURFACE_ELEVATED)
+            add_theme_color(mvThemeCol_TitleBgCollapsed, COLOR_SURFACE)
+
             # Headers
             add_theme_color(mvThemeCol_Header, COLOR_ACCENT)
             add_theme_color(mvThemeCol_HeaderHovered, COLOR_PRIMARY)
