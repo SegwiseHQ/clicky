@@ -70,4 +70,3 @@ class VerticalSplitter:
         configure_item("left_panel", width=new_w)
         configure_item("table_search", width=new_w - 20)
         configure_item("tables_panel", width=new_w)
-        configure_item("status_panel", width=new_w)

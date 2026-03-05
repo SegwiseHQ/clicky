@@ -4,7 +4,7 @@ import time
 
 from dearpygui.dearpygui import *
 
-from config import COLOR_ERROR, COLOR_SUCCESS, TABLES_PANEL_WIDTH
+from config import COLOR_ERROR, COLOR_SUCCESS
 
 
 class StatusManager:
@@ -29,7 +29,7 @@ class StatusManager:
                 parent="status_text",
                 color=COLOR_ERROR,
                 tag=error_text_tag,
-                wrap=TABLES_PANEL_WIDTH - 20,
+                wrap=-1,
             )
             if StatusManager.theme_manager:
                 bind_item_theme(
@@ -51,7 +51,7 @@ class StatusManager:
                 parent="status_text",
                 color=COLOR_SUCCESS,
                 tag=success_text_tag,
-                wrap=TABLES_PANEL_WIDTH - 20,
+                wrap=-1,
             )
             if StatusManager.theme_manager:
                 bind_item_theme(
