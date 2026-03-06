@@ -155,6 +155,7 @@ class ClickHouseClientApp:
         while is_dearpygui_running():
             self.async_worker.process_pending()
             self.ui_layout.splitter.update()
+            self.tabbed_query_interface.update_resize()
             self.tabbed_query_interface.poll_closed_tabs()
             self.tabbed_explorer.poll_closed_tabs()
             render_dearpygui_frame()

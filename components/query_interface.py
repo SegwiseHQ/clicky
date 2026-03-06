@@ -8,11 +8,16 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import sqlparse
 from dearpygui.dearpygui import *
 
 from config import DEFAULT_TAB_LABEL, MAX_QUERY_TABS, QUERY_INPUT_HEIGHT
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
+
+MIN_QUERY_INPUT_HEIGHT = 80
+MAX_QUERY_INPUT_HEIGHT = 600
+RESIZER_HEIGHT = 6
 
 # ---------------------------------------------------------------------------
 # Per-tab state
@@ -28,10 +33,13 @@ class QueryTabState:
     tab_tag: str
     input_tag: str
     run_btn_tag: str
+    format_btn_tag: str
     save_btn_tag: str
+    resizer_tag: str
     results_window_tag: str
 
     query_running: bool = False
+    input_height: int = QUERY_INPUT_HEIGHT
     current_table_tag: str | None = None
     table_counter: int = 0
     last_query_results: list | None = None
@@ -63,6 +71,10 @@ class TabbedQueryInterface:
 
         self._tabs: dict[int, QueryTabState] = {}
         self._tab_counter = 0
+        self._resizing_tab_id: int | None = None
+        self._resize_start_y: float = 0
+        self._resize_start_height: int = 0
+        self._resize_handlers_ready = False
         self.table_theme = None
         self._setup_table_theme()
 
@@ -73,6 +85,69 @@ class TabbedQueryInterface:
             with theme() as self.table_theme, theme_component(mvTable):
                 add_theme_style(mvStyleVar_CellPadding, 8, 8)
                 add_theme_style(mvStyleVar_ItemSpacing, 0, 4)
+
+    def _setup_resize_handlers(self):
+        import dearpygui.dearpygui as dpg
+
+        with dpg.handler_registry(tag="query_resize_handler_registry"):
+            dpg.add_mouse_click_handler(callback=self._on_resize_mouse_down)
+            dpg.add_mouse_release_handler(callback=self._on_resize_mouse_up)
+        self._resize_handlers_ready = True
+
+    def _is_mouse_over_resizer(self, state):
+        """Check if mouse is over a resizer button."""
+        try:
+            return is_item_hovered(state.resizer_tag)
+        except Exception:
+            return False
+
+    def _on_resize_mouse_down(self, sender, app_data):
+        for tab_id, state in self._tabs.items():
+            if not does_item_exist(state.resizer_tag):
+                continue
+            if self._is_mouse_over_resizer(state):
+                _, my = get_mouse_pos(local=False)
+                self._resizing_tab_id = tab_id
+                self._resize_start_y = my
+                self._resize_start_height = state.input_height
+                break
+
+    def _on_resize_mouse_up(self, sender, app_data):
+        self._resizing_tab_id = None
+
+    def update_resize(self):
+        """Call each frame to handle query input resizing."""
+        if not self._resize_handlers_ready:
+            self._setup_resize_handlers()
+
+        # Highlight resizer while actively dragging
+        if self.theme_manager:
+            for state in self._tabs.values():
+                if not does_item_exist(state.resizer_tag):
+                    continue
+                is_active = self._resizing_tab_id == state.tab_id
+                bind_item_theme(
+                    state.resizer_tag,
+                    self.theme_manager.get_theme(
+                        "resizer_active" if is_active else "resizer"
+                    ),
+                )
+
+        if self._resizing_tab_id is None:
+            return
+        state = self._tabs.get(self._resizing_tab_id)
+        if state is None:
+            self._resizing_tab_id = None
+            return
+        _, my = get_mouse_pos(local=False)
+        delta = my - self._resize_start_y
+        new_height = int(self._resize_start_height + delta)
+        new_height = max(
+            MIN_QUERY_INPUT_HEIGHT, min(MAX_QUERY_INPUT_HEIGHT, new_height)
+        )
+        if new_height != state.input_height:
+            state.input_height = new_height
+            configure_item(state.input_tag, height=new_height)
 
     def set_status_callback(self, callback: Callable[[str, bool], None]):
         self.status_callback = callback
@@ -98,7 +173,9 @@ class TabbedQueryInterface:
             tab_tag=f"query_tab_{tab_id}",
             input_tag=f"query_input_{tab_id}",
             run_btn_tag=f"run_query_btn_{tab_id}",
+            format_btn_tag=f"format_btn_{tab_id}",
             save_btn_tag=f"save_json_btn_{tab_id}",
+            resizer_tag=f"query_resizer_{tab_id}",
             results_window_tag=f"results_window_{tab_id}",
         )
         self._tabs[tab_id] = state
@@ -126,28 +203,53 @@ class TabbedQueryInterface:
                     self.theme_manager.get_theme("input_enhanced"),
                 )
 
+            # Drag handle to resize query input vertically
             add_button(
-                label=f"{icon_manager.get('query')} Run Query",
-                tag=state.run_btn_tag,
-                callback=self._make_run_callback(state.tab_id),
+                tag=state.resizer_tag,
+                label="━━━",
+                width=-1,
+                height=RESIZER_HEIGHT,
             )
             if self.theme_manager:
                 bind_item_theme(
-                    state.run_btn_tag,
-                    self.theme_manager.get_theme("button_primary"),
+                    state.resizer_tag,
+                    self.theme_manager.get_theme("resizer"),
                 )
 
-            add_button(
-                label=f"{icon_manager.get('export')} Save as JSON",
-                tag=state.save_btn_tag,
-                show=False,
-                callback=self._make_save_callback(state.tab_id),
-            )
-            if self.theme_manager:
-                bind_item_theme(
-                    state.save_btn_tag,
-                    self.theme_manager.get_theme("button_primary"),
+            with group(horizontal=True):
+                add_button(
+                    label=f"{icon_manager.get('query')} Run Query",
+                    tag=state.run_btn_tag,
+                    callback=self._make_run_callback(state.tab_id),
                 )
+                if self.theme_manager:
+                    bind_item_theme(
+                        state.run_btn_tag,
+                        self.theme_manager.get_theme("button_primary"),
+                    )
+
+                add_button(
+                    label="{ } Format",
+                    tag=state.format_btn_tag,
+                    callback=self._make_format_callback(state.tab_id),
+                )
+                if self.theme_manager:
+                    bind_item_theme(
+                        state.format_btn_tag,
+                        self.theme_manager.get_theme("button_secondary"),
+                    )
+
+                add_button(
+                    label=f"{icon_manager.get('export')} Save as JSON",
+                    tag=state.save_btn_tag,
+                    show=False,
+                    callback=self._make_save_callback(state.tab_id),
+                )
+                if self.theme_manager:
+                    bind_item_theme(
+                        state.save_btn_tag,
+                        self.theme_manager.get_theme("button_primary"),
+                    )
 
             add_separator()
 
@@ -279,11 +381,37 @@ class TabbedQueryInterface:
 
         return callback
 
+    def _make_format_callback(self, tab_id: int):
+        def callback(sender, data):
+            self._format_query_for_tab(tab_id)
+
+        return callback
+
     def _make_save_callback(self, tab_id: int):
         def callback(sender, data):
             self._save_as_json_for_tab(tab_id)
 
         return callback
+
+    def _format_query_for_tab(self, tab_id: int):
+        state = self._tabs.get(tab_id)
+        if state is None:
+            return
+        query = get_value(state.input_tag).strip()
+        if not query:
+            if self.status_callback:
+                self.status_callback("Query is empty", True)
+            return
+        formatted = sqlparse.format(
+            query,
+            reindent=True,
+            keyword_case="upper",
+            indent_width=2,
+            wrap_after=80,
+        )
+        set_value(state.input_tag, formatted)
+        if self.status_callback:
+            self.status_callback("Query formatted", False)
 
     def poll_closed_tabs(self):
         """Called each frame to detect tabs closed via the DPG X button."""
