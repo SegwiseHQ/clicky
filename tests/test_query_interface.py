@@ -71,7 +71,9 @@ def _make_state(tab_id=0, label="Query 1"):
         tab_tag=f"query_tab_{tab_id}",
         input_tag=f"query_input_{tab_id}",
         run_btn_tag=f"run_query_btn_{tab_id}",
+        format_btn_tag=f"format_btn_{tab_id}",
         save_btn_tag=f"save_json_btn_{tab_id}",
+        resizer_tag=f"query_resizer_{tab_id}",
         results_window_tag=f"results_window_{tab_id}",
     )
 
@@ -386,6 +388,187 @@ class TestMakeApplyAndCancelRenameCallbacks(unittest.TestCase):
             cb = iface._make_cancel_rename(3)
             cb("s", "d")
             mock.assert_called_once_with(3)
+
+
+class TestFormatQuery(unittest.TestCase):
+    """Test _format_query_for_tab formats SQL via sqlparse."""
+
+    @_patch("set_value")
+    @_patch("get_value", return_value="select id, name from users where id > 1")
+    def test_formats_sql(self, _get, mock_set):
+        iface = _make_interface()
+        status = MagicMock()
+        iface.status_callback = status
+        state = _make_state(tab_id=0)
+        iface._tabs[0] = state
+
+        iface._format_query_for_tab(0)
+
+        # set_value called with formatted SQL (keywords uppercased, reindented)
+        mock_set.assert_called_once()
+        formatted = mock_set.call_args[0][1]
+        self.assertIn("SELECT", formatted)
+        self.assertIn("FROM", formatted)
+        self.assertIn("WHERE", formatted)
+        status.assert_called_once_with("Query formatted", False)
+
+    @_patch("set_value")
+    @_patch("get_value", return_value="   ")
+    def test_empty_query_shows_error(self, _get, mock_set):
+        iface = _make_interface()
+        status = MagicMock()
+        iface.status_callback = status
+        state = _make_state(tab_id=0)
+        iface._tabs[0] = state
+
+        iface._format_query_for_tab(0)
+
+        mock_set.assert_not_called()
+        status.assert_called_once_with("Query is empty", True)
+
+    def test_noop_when_tab_missing(self):
+        iface = _make_interface()
+        iface._format_query_for_tab(999)
+
+    def test_make_format_callback_delegates(self):
+        iface = _make_interface()
+        with patch.object(iface, "_format_query_for_tab") as mock:
+            cb = iface._make_format_callback(7)
+            cb("s", "d")
+            mock.assert_called_once_with(7)
+
+
+class TestResizeMouseDown(unittest.TestCase):
+    """Test _on_resize_mouse_down sets drag state when hovering resizer."""
+
+    @_patch("get_mouse_pos", return_value=(100, 300))
+    @_patch("is_item_hovered", return_value=True)
+    @_patch("does_item_exist", return_value=True)
+    def test_starts_drag_when_hovered(self, _exists, _hovered, _mouse):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        state.input_height = 150
+        iface._tabs[0] = state
+
+        iface._on_resize_mouse_down("sender", None)
+
+        self.assertEqual(iface._resizing_tab_id, 0)
+        self.assertEqual(iface._resize_start_y, 300)
+        self.assertEqual(iface._resize_start_height, 150)
+
+    @_patch("is_item_hovered", return_value=False)
+    @_patch("does_item_exist", return_value=True)
+    def test_no_drag_when_not_hovered(self, _exists, _hovered):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        iface._tabs[0] = state
+
+        iface._on_resize_mouse_down("sender", None)
+
+        self.assertIsNone(iface._resizing_tab_id)
+
+    def test_no_drag_when_no_tabs(self):
+        iface = _make_interface()
+        iface._on_resize_mouse_down("sender", None)
+        self.assertIsNone(iface._resizing_tab_id)
+
+
+class TestResizeMouseUp(unittest.TestCase):
+    """Test _on_resize_mouse_up clears drag state."""
+
+    def test_clears_resizing_tab(self):
+        iface = _make_interface()
+        iface._resizing_tab_id = 5
+
+        iface._on_resize_mouse_up("sender", None)
+
+        self.assertIsNone(iface._resizing_tab_id)
+
+
+class TestUpdateResize(unittest.TestCase):
+    """Test update_resize applies height changes during drag."""
+
+    @_patch("configure_item")
+    @_patch("bind_item_theme")
+    @_patch("does_item_exist", return_value=True)
+    @_patch("get_mouse_pos", return_value=(100, 350))
+    def test_resizes_input_on_drag(self, _mouse, _exists, _bind, mock_cfg):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        state.input_height = 150
+        iface._tabs[0] = state
+        iface._resize_handlers_ready = True
+        iface._resizing_tab_id = 0
+        iface._resize_start_y = 300
+        iface._resize_start_height = 150
+
+        iface.update_resize()
+
+        # delta = 350 - 300 = 50, new height = 150 + 50 = 200
+        mock_cfg.assert_called_with(state.input_tag, height=200)
+        self.assertEqual(state.input_height, 200)
+
+    @_patch("configure_item")
+    @_patch("bind_item_theme")
+    @_patch("does_item_exist", return_value=True)
+    @_patch("get_mouse_pos", return_value=(100, 10))
+    def test_clamps_to_min_height(self, _mouse, _exists, _bind, mock_cfg):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        state.input_height = 150
+        iface._tabs[0] = state
+        iface._resize_handlers_ready = True
+        iface._resizing_tab_id = 0
+        iface._resize_start_y = 300
+        iface._resize_start_height = 150
+
+        iface.update_resize()
+
+        # delta = 10 - 300 = -290, clamped to MIN_QUERY_INPUT_HEIGHT (80)
+        mock_cfg.assert_called_with(
+            state.input_tag, height=qi_mod.MIN_QUERY_INPUT_HEIGHT
+        )
+
+    @_patch("configure_item")
+    @_patch("bind_item_theme")
+    @_patch("does_item_exist", return_value=True)
+    @_patch("get_mouse_pos", return_value=(100, 900))
+    def test_clamps_to_max_height(self, _mouse, _exists, _bind, mock_cfg):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        state.input_height = 150
+        iface._tabs[0] = state
+        iface._resize_handlers_ready = True
+        iface._resizing_tab_id = 0
+        iface._resize_start_y = 300
+        iface._resize_start_height = 150
+
+        iface.update_resize()
+
+        # delta = 900 - 300 = 600, clamped to MAX_QUERY_INPUT_HEIGHT (600)
+        mock_cfg.assert_called_with(
+            state.input_tag, height=qi_mod.MAX_QUERY_INPUT_HEIGHT
+        )
+
+    @_patch("bind_item_theme")
+    @_patch("does_item_exist", return_value=True)
+    def test_noop_when_not_dragging(self, _exists, mock_bind):
+        iface = _make_interface()
+        state = _make_state(tab_id=0)
+        iface._tabs[0] = state
+        iface._resize_handlers_ready = True
+
+        iface.update_resize()
+        # bind_item_theme called for highlight logic, but no configure_item
+
+    def test_clears_state_when_tab_gone(self):
+        iface = _make_interface(theme_manager=None)
+        iface._resize_handlers_ready = True
+        iface._resizing_tab_id = 99
+
+        iface.update_resize()
+
+        self.assertIsNone(iface._resizing_tab_id)
 
 
 if __name__ == "__main__":

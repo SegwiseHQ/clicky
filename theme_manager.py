@@ -39,6 +39,7 @@ class ThemeManager:
         self._create_button_themes()
         self._create_table_themes()
         self._create_window_themes()
+        self._create_resizer_themes()
         self._create_input_themes()
         self._create_text_themes()
 
@@ -227,6 +228,26 @@ class ThemeManager:
                 add_theme_color(mvThemeCol_Border, COLOR_BORDER)
                 add_theme_style(mvStyleVar_ChildRounding, 8)
                 add_theme_style(mvStyleVar_WindowPadding, 8, 8)
+
+    def _create_resizer_themes(self):
+        """Create themes for the query input drag-to-resize handle."""
+        with theme() as self.themes["resizer"]:
+            with theme_component(mvButton):
+                add_theme_color(mvThemeCol_Button, (45, 45, 58))
+                add_theme_color(mvThemeCol_ButtonHovered, (70, 70, 90))
+                add_theme_color(mvThemeCol_ButtonActive, COLOR_PRIMARY)
+                add_theme_color(mvThemeCol_Text, (90, 90, 110))
+                add_theme_style(mvStyleVar_FrameRounding, 2)
+                add_theme_style(mvStyleVar_FramePadding, 0, 0)
+
+        with theme() as self.themes["resizer_active"]:
+            with theme_component(mvButton):
+                add_theme_color(mvThemeCol_Button, COLOR_PRIMARY)
+                add_theme_color(mvThemeCol_ButtonHovered, COLOR_PRIMARY)
+                add_theme_color(mvThemeCol_ButtonActive, COLOR_PRIMARY)
+                add_theme_color(mvThemeCol_Text, (200, 200, 220))
+                add_theme_style(mvStyleVar_FrameRounding, 2)
+                add_theme_style(mvStyleVar_FramePadding, 0, 0)
 
     def _create_input_themes(self):
         """Create input field themes."""
