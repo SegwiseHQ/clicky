@@ -106,6 +106,7 @@ jobs:
         with:
           repository: SegwiseHQ/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          ref: master
           path: homebrew-tap
 
       - name: Update Cask formula
