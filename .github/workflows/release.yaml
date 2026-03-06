@@ -106,11 +106,11 @@ jobs:
         with:
           repository: SegwiseHQ/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          ref: master
           path: homebrew-tap
 
       - name: Update Cask formula
         run: |
+          mkdir -p homebrew-tap/Casks
           cat > homebrew-tap/Casks/clicky.rb << CASK_EOF
           cask "clicky" do
             version "${{ steps.version.outputs.version }}"
