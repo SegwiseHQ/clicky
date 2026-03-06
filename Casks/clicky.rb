@@ -11,6 +11,11 @@ cask "clicky" do
 
   app "clicky.app"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-cr", "#{appdir}/clicky.app"]
+  end
+
   zap trash: [
     "~/Library/Application Support/clicky",
   ]
