@@ -163,7 +163,6 @@ class TestVerticalSplitterUpdate(unittest.TestCase):
         mock_cfg.assert_any_call("left_panel", width=400)
         mock_cfg.assert_any_call("table_search", width=380)
         mock_cfg.assert_any_call("tables_panel", width=400)
-        mock_cfg.assert_any_call("status_panel", width=400)
 
     @patch("components.splitter.get_mouse_pos", return_value=(50, 300))
     @patch("components.splitter.configure_item")
@@ -198,15 +197,26 @@ class TestVerticalSplitterUpdate(unittest.TestCase):
 
         mock_cfg.assert_not_called()
 
-    @patch("components.splitter.get_mouse_pos", return_value=(508, 300))
+    @patch("components.splitter.get_mouse_pos", return_value=(408, 300))
     @patch("components.splitter.configure_item")
-    def test_update_configures_all_four_panels(self, mock_cfg, _mouse):
-        """Exactly 4 configure_item calls for the 4 resizable elements."""
+    def test_update_does_not_resize_status_panel(self, mock_cfg, _mouse):
+        """Status panel spans full width; splitter should not touch it."""
         self.splitter._dragging = True
 
         self.splitter.update()
 
-        self.assertEqual(mock_cfg.call_count, 4)
+        status_calls = [c for c in mock_cfg.call_args_list if c[0][0] == "status_panel"]
+        self.assertEqual(status_calls, [])
+
+    @patch("components.splitter.get_mouse_pos", return_value=(508, 300))
+    @patch("components.splitter.configure_item")
+    def test_update_configures_all_three_panels(self, mock_cfg, _mouse):
+        """Exactly 3 configure_item calls for the 3 resizable elements."""
+        self.splitter._dragging = True
+
+        self.splitter.update()
+
+        self.assertEqual(mock_cfg.call_count, 3)
 
 
 if __name__ == "__main__":

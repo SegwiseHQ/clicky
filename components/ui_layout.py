@@ -39,78 +39,79 @@ class UILayout:
                     callback=connect_callback,
                 )
 
-            with group(horizontal=True):
-                # Left panel container
-                with group(width=TABLES_PANEL_WIDTH, tag="left_panel"):
-                    # Header and search bar (fixed at top)
-                    add_text(
-                        "Database Tables",
-                        color=(220, 220, 220),
-                        tag="database_tables_header",
-                    )
-                    if self.theme_manager:
-                        bind_item_theme(
-                            "database_tables_header",
-                            self.theme_manager.get_theme("header_text"),
+            with child_window(height=-120, border=False, tag="main_content_area"):
+                with group(horizontal=True):
+                    # Left panel container
+                    with group(width=TABLES_PANEL_WIDTH, tag="left_panel"):
+                        # Header and search bar (fixed at top)
+                        add_text(
+                            "Database Tables",
+                            color=(220, 220, 220),
+                            tag="database_tables_header",
                         )
-
-                    # Add search bar for filtering table names (fixed at top)
-                    add_input_text(
-                        tag="table_search",
-                        hint="Search tables...",
-                        callback=(
-                            self.table_browser_ui.filter_tables_callback
-                            if self.table_browser_ui
-                            else None
-                        ),
-                        width=TABLES_PANEL_WIDTH - 20,  # Account for padding
-                    )
-                    if self.theme_manager:
-                        bind_item_theme(
-                            "table_search",
-                            self.theme_manager.get_theme("input_enhanced"),
-                        )
-
-                    # Tables section with scroll - takes remaining space
-                    with child_window(
-                        label="",  # No label since header is outside
-                        width=TABLES_PANEL_WIDTH,
-                        height=-120,  # Leave space for status section at bottom
-                        tag="tables_panel",
-                        border=True,
-                    ):
                         if self.theme_manager:
                             bind_item_theme(
-                                "tables_panel",
-                                self.theme_manager.get_theme("tables_panel"),
+                                "database_tables_header",
+                                self.theme_manager.get_theme("header_text"),
                             )
 
-                        # Add group for table list
-                        add_group(tag="tables_list")
-                        # We'll populate this with saved connections in show_saved_connections()
-
-                    # Status section fixed at bottom
-                    with child_window(
-                        label=f"{icon_manager.get('info')} Status",
-                        width=TABLES_PANEL_WIDTH,
-                        height=100,  # Fixed height for status
-                        tag="status_panel",
-                        border=True,
-                    ):
+                        # Add search bar for filtering table names (fixed at top)
+                        add_input_text(
+                            tag="table_search",
+                            hint="Search tables...",
+                            callback=(
+                                self.table_browser_ui.filter_tables_callback
+                                if self.table_browser_ui
+                                else None
+                            ),
+                            width=TABLES_PANEL_WIDTH - 20,  # Account for padding
+                        )
                         if self.theme_manager:
                             bind_item_theme(
-                                "status_panel",
-                                self.theme_manager.get_theme("status_window"),
+                                "table_search",
+                                self.theme_manager.get_theme("input_enhanced"),
                             )
-                        self._setup_status_section()
 
-                # Draggable splitter
-                self.splitter.create(TABLES_PANEL_WIDTH)
+                        # Tables section with scroll - takes remaining space
+                        with child_window(
+                            label="",  # No label since header is outside
+                            width=TABLES_PANEL_WIDTH,
+                            height=-1,  # Fill remaining left panel space
+                            tag="tables_panel",
+                            border=True,
+                        ):
+                            if self.theme_manager:
+                                bind_item_theme(
+                                    "tables_panel",
+                                    self.theme_manager.get_theme("tables_panel"),
+                                )
 
-                # Right panel for query and results
-                with group(width=-1):
-                    self._setup_query_section()
-                    self._setup_explorer_section()
+                            # Add group for table list
+                            add_group(tag="tables_list")
+                            # We'll populate this with saved connections in show_saved_connections()
+
+                    # Draggable splitter
+                    self.splitter.create(TABLES_PANEL_WIDTH)
+
+                    # Right panel for query and results
+                    with group(width=-1):
+                        self._setup_query_section()
+                        self._setup_explorer_section()
+
+            # Status section fixed at bottom, spanning full width
+            with child_window(
+                label=f"{icon_manager.get('info')} Status",
+                width=-1,
+                height=100,  # Fixed height for status
+                tag="status_panel",
+                border=True,
+            ):
+                if self.theme_manager:
+                    bind_item_theme(
+                        "status_panel",
+                        self.theme_manager.get_theme("status_window"),
+                    )
+                self._setup_status_section()
 
         # Make main window fill viewport
         set_primary_window("main_window", True)
