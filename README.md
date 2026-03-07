@@ -34,32 +34,18 @@ brew install --cask clicky
 
 ### Prerequisites
 - Python 3.13+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
-
-### Create a virtual environment
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+- [uv](https://docs.astral.sh/uv/)
 
 ### Install dependencies
 
-Using uv (recommended):
 ```bash
-pip install uv
-uv pip install -r requirements.txt
-```
-
-Or using pip:
-```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ### Install pre-commit hooks
 
 ```bash
-pre-commit install
+uv run pre-commit install
 ```
 
 This runs [ruff](https://docs.astral.sh/ruff/) (linter + formatter) and a few standard checks (trailing whitespace, YAML/JSON/TOML validation, large file guard) on every commit.
@@ -67,20 +53,20 @@ This runs [ruff](https://docs.astral.sh/ruff/) (linter + formatter) and a few st
 ### Run the app
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ### Run tests
 
 ```bash
-pytest
+uv run pytest
 ```
 
 ### Run linter / formatter manually
 
 ```bash
-ruff check --fix .
-ruff format .
+uv run ruff check --fix .
+uv run ruff format .
 ```
 
 # Creating a binary

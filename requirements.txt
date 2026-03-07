@@ -1,8 +1,0 @@
-clickhouse_connect~=0.11.0
-dearpygui~=2.2
-cryptography~=46.0.5
-sqlparse~=0.5
-pyinstaller~=6.19.0
-pytest~=9.0.2
-ruff~=0.9.6
-pre-commit~=4.1.0
