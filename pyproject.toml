@@ -5,11 +5,6 @@ description = "A free, lightweight ClickHouse desktop client"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-
-[project.urls]
-Homepage = "https://github.com/SegwiseHQ/clicky"
-Repository = "https://github.com/SegwiseHQ/clicky"
-Issues = "https://github.com/SegwiseHQ/clicky/issues"
 dependencies = [
     "clickhouse-connect>=0.8.18",
     "cryptography>=45.0.5",
@@ -17,6 +12,11 @@ dependencies = [
     "sqlparse>=0.5",
     "pyinstaller>=6.14.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SegwiseHQ/clicky"
+Repository = "https://github.com/SegwiseHQ/clicky"
+Issues = "https://github.com/SegwiseHQ/clicky/issues"
 
 [dependency-groups]
 dev = [

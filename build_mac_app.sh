@@ -10,7 +10,7 @@ echo "Cleaning previous builds..."
 rm -rf "$DIST_DIR" "$BUILD_DIR"
 
 echo "Building macOS app bundle..."
-pyinstaller "$SPEC_FILE" --noconfirm
+uv run pyinstaller "$SPEC_FILE" --noconfirm
 
 APP_PATH="$DIST_DIR/$APP_NAME.app"
 ZIP_NAME="${APP_NAME}_mac_$(date +%Y%m%d).zip"
