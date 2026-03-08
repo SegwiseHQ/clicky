@@ -29,6 +29,17 @@ class CredentialsUI:
 
         # Optional callbacks for UI updates
         self.on_credentials_saved = None  # Called after credentials are saved
+        self._password_visible = False
+
+    def _toggle_password_visibility(self, sender, data):
+        self._password_visible = not self._password_visible
+        current_value = UIHelpers.safe_get_value("password_input", "")
+        configure_item("password_input", password=not self._password_visible)
+        set_value("password_input", current_value)
+        configure_item(
+            "password_toggle_btn",
+            label="◉" if self._password_visible else "⊙",
+        )
 
     def save_credentials_callback(self, sender, data):
         """Save current connection credentials with default name (legacy)."""
@@ -264,12 +275,21 @@ class CredentialsUI:
 
                 with group():
                     add_text("Password:")
-                    add_input_text(
-                        password=True,
-                        tag="password_input",
-                        hint="Leave empty if no password required",
-                        width=250,
-                    )
+                    with group(horizontal=True):
+                        add_input_text(
+                            password=True,
+                            tag="password_input",
+                            hint="Leave empty if no password required",
+                            width=240,
+                        )
+                        add_button(
+                            label="⊙",
+                            tag="password_toggle_btn",
+                            callback=self._toggle_password_visibility,
+                            small=True,
+                        )
+                        with tooltip("password_toggle_btn"):
+                            add_text("Show/Hide password")
                     if self.theme_manager:
                         bind_item_theme(
                             "password_input",
