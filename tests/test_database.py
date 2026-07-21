@@ -38,7 +38,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(self.db_manager.is_connected)
         self.assertEqual(self.db_manager.connection_info, {})
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_success(self, mock_clickhouse_connect):
         """Test successful database connection."""
         # Arrange
@@ -84,7 +84,7 @@ class TestDatabaseManager(unittest.TestCase):
         )
         mock_client.query.assert_called_once_with("SELECT 1")
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_with_custom_timeouts(self, mock_clickhouse_connect):
         """Test successful database connection with custom timeout and retry values."""
         # Arrange
@@ -121,7 +121,7 @@ class TestDatabaseManager(unittest.TestCase):
             query_retries=1,
         )
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_missing_host(self, mock_clickhouse_connect):
         """Test connection with missing host."""
         # Act
@@ -139,7 +139,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(self.db_manager.is_connected)
         self.assertIsNone(self.db_manager.client)
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_missing_username(self, mock_clickhouse_connect):
         """Test connection with missing username."""
         # Act
@@ -155,7 +155,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(message, "All fields except password must be filled")
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_missing_database(self, mock_clickhouse_connect):
         """Test connection with missing database."""
         # Act
@@ -171,7 +171,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(message, "All fields except password must be filled")
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_invalid_port_string(self, mock_clickhouse_connect):
         """Test connection with invalid port (string)."""
         # Act
@@ -187,7 +187,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(message, "Port must be a number, got: invalid_port")
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_port_conversion(self, mock_clickhouse_connect):
         """Test connection with port as string that can be converted to int."""
         # Arrange
@@ -210,7 +210,7 @@ class TestDatabaseManager(unittest.TestCase):
             self.db_manager.connection_info["port"], 8123
         )  # Should be converted to int
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_client_creation_exception(self, mock_clickhouse_connect):
         """Test connection when client creation fails."""
         # Arrange
@@ -233,7 +233,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertFalse(self.db_manager.is_connected)
         self.assertIsNone(self.db_manager.client)
 
-    @patch("database.clickhouse_connect")
+    @patch.object(database, "clickhouse_connect")
     def test_connect_test_query_exception(self, mock_clickhouse_connect):
         """Test connection when test query fails."""
         # Arrange
@@ -403,6 +403,94 @@ class TestDatabaseManager(unittest.TestCase):
 
         # Assert
         self.assertEqual(columns, [])
+
+
+class TestConnectionPool(unittest.TestCase):
+    """Test per-tab client lifecycle and stale-connection recovery."""
+
+    def setUp(self):
+        self.pool = database.ConnectionPool()
+        self.pool.configure(
+            {
+                "host": "localhost",
+                "port": 8123,
+                "username": "default",
+                "password": "password",
+                "database": "default",
+            }
+        )
+
+    @patch.object(database, "clickhouse_connect")
+    def test_unknown_table_refreshes_client_and_retries_once(
+        self, mock_clickhouse_connect
+    ):
+        stale_client = Mock()
+        refreshed_client = Mock()
+        expected_result = Mock()
+        stale_client.query.side_effect = Exception(
+            "HTTPDriver received ClickHouse error code 60"
+        )
+        refreshed_client.query.return_value = expected_result
+        mock_clickhouse_connect.get_client.side_effect = [
+            stale_client,
+            refreshed_client,
+        ]
+
+        result = self.pool.execute_query(7, "SELECT * FROM renamed_table")
+
+        self.assertIs(result, expected_result)
+        self.assertEqual(mock_clickhouse_connect.get_client.call_count, 2)
+        stale_client.query.assert_called_once_with("SELECT * FROM renamed_table")
+        stale_client.close.assert_called_once_with()
+        refreshed_client.query.assert_called_once_with("SELECT * FROM renamed_table")
+
+    @patch.object(database, "clickhouse_connect")
+    def test_unknown_table_is_only_retried_once(self, mock_clickhouse_connect):
+        stale_client = Mock()
+        refreshed_client = Mock()
+        stale_error = Exception("UNKNOWN_TABLE")
+        refreshed_error = Exception("UNKNOWN_TABLE")
+        stale_client.query.side_effect = stale_error
+        refreshed_client.query.side_effect = refreshed_error
+        mock_clickhouse_connect.get_client.side_effect = [
+            stale_client,
+            refreshed_client,
+        ]
+
+        with self.assertRaises(Exception) as context:
+            self.pool.execute_query(3, "SELECT * FROM missing_table")
+
+        self.assertIs(context.exception, refreshed_error)
+        self.assertEqual(mock_clickhouse_connect.get_client.call_count, 2)
+        stale_client.close.assert_called_once_with()
+        refreshed_client.query.assert_called_once_with("SELECT * FROM missing_table")
+
+    @patch.object(database, "clickhouse_connect")
+    def test_unrelated_query_error_does_not_refresh_client(
+        self, mock_clickhouse_connect
+    ):
+        client = Mock()
+        query_error = Exception("Code: 62. SYNTAX_ERROR")
+        client.query.side_effect = query_error
+        mock_clickhouse_connect.get_client.return_value = client
+
+        with self.assertRaises(Exception) as context:
+            self.pool.execute_query(2, "INVALID SQL")
+
+        self.assertIs(context.exception, query_error)
+        mock_clickhouse_connect.get_client.assert_called_once()
+        client.close.assert_not_called()
+
+    @patch.object(database, "clickhouse_connect")
+    def test_release_closes_and_removes_client(self, mock_clickhouse_connect):
+        client = Mock()
+        mock_clickhouse_connect.get_client.return_value = client
+        self.pool.get_or_create_client(5)
+
+        self.pool.release(5)
+
+        client.close.assert_called_once_with()
+        self.assertNotIn(5, self.pool._clients)
 
 
 class TestPasswordFunctions(unittest.TestCase):
