@@ -1,5 +1,6 @@
 """Database connection management for ClickHouse Client."""
 
+import re
 import threading
 import traceback
 
@@ -281,14 +282,40 @@ class ConnectionPool:
             return self._clients[tab_id]
 
     def execute_query(self, tab_id: int, query: str):
-        """Execute a query on the client for the given tab."""
+        """Execute a query, refreshing once if its connection reports unknown table."""
         client = self.get_or_create_client(tab_id)
-        return client.query(query)
+        try:
+            return client.query(query)
+        except Exception as error:
+            if not self._is_unknown_table_error(error):
+                raise
+
+            # Query tabs keep independent HTTP clients.  After a table rename, a
+            # long-lived client can remain attached to a server that has not yet
+            # observed the new table name, even though the explorer's connection
+            # already has.  Recreate this tab's client and retry exactly once.
+            self.release(tab_id)
+            refreshed_client = self.get_or_create_client(tab_id)
+            return refreshed_client.query(query)
 
     def release(self, tab_id: int) -> None:
-        """Remove the client for a closed tab."""
+        """Close and remove the client for a closed or stale tab."""
         with self._lock:
-            self._clients.pop(tab_id, None)
+            client = self._clients.pop(tab_id, None)
+
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _is_unknown_table_error(error: Exception) -> bool:
+        """Return whether ClickHouse reported UNKNOWN_TABLE (error code 60)."""
+        message = str(error).upper()
+        return "UNKNOWN_TABLE" in message or bool(
+            re.search(r"\bCODE\s*:?\s*60\b", message)
+        )
 
 
 def encrypt_password(password: str) -> str:
