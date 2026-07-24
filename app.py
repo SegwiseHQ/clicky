@@ -123,6 +123,7 @@ class ClickHouseClientApp:
             self.credentials_ui.save_credentials_callback(None, None)
 
             # Automatically list tables after successful connection
+            self.table_browser_ui.invalidate_table_cache()
             current_search = UIHelpers.safe_get_value("table_search", "")
             self.table_browser_ui.filter_tables_callback(None, current_search)
 
@@ -154,10 +155,13 @@ class ClickHouseClientApp:
         # threads can safely update the UI without thread-safety issues.
         while is_dearpygui_running():
             self.async_worker.process_pending()
+            self.table_browser_ui.process_pending_filter()
             self.ui_layout.splitter.update()
             self.tabbed_query_interface.update_resize()
             self.tabbed_query_interface.poll_closed_tabs()
             self.tabbed_explorer.poll_closed_tabs()
             render_dearpygui_frame()
 
+        self.connection_pool.close_all()
+        self.db_manager.disconnect()
         destroy_context()

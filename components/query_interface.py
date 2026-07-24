@@ -14,6 +14,7 @@ from dearpygui.dearpygui import *
 from config import DEFAULT_TAB_LABEL, MAX_QUERY_TABS, QUERY_INPUT_HEIGHT
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
+from utils import get_result_column_types
 
 MIN_QUERY_INPUT_HEIGHT = 80
 MAX_QUERY_INPUT_HEIGHT = 600
@@ -33,7 +34,6 @@ class QueryTabState:
     tab_tag: str
     input_tag: str
     run_btn_tag: str
-    format_btn_tag: str
     save_btn_tag: str
     resizer_tag: str
     results_window_tag: str
@@ -64,7 +64,7 @@ class TabbedQueryInterface:
         async_worker=None,
     ):
         self.connection_pool = connection_pool
-        self.db_manager = db_manager  # used only for get_table_columns() (metadata)
+        self.db_manager = db_manager
         self.theme_manager = theme_manager
         self.async_worker = async_worker
         self.status_callback: Callable[[str, bool], None] | None = None
@@ -75,6 +75,7 @@ class TabbedQueryInterface:
         self._resize_start_y: float = 0
         self._resize_start_height: int = 0
         self._resize_handlers_ready = False
+        self._themed_resizer_tab_id: int | None = None
         self.table_theme = None
         self._setup_table_theme()
 
@@ -120,25 +121,34 @@ class TabbedQueryInterface:
         if not self._resize_handlers_ready:
             self._setup_resize_handlers()
 
-        # Highlight resizer while actively dragging
-        if self.theme_manager:
-            for state in self._tabs.values():
-                if not does_item_exist(state.resizer_tag):
-                    continue
-                is_active = self._resizing_tab_id == state.tab_id
-                bind_item_theme(
-                    state.resizer_tag,
-                    self.theme_manager.get_theme(
-                        "resizer_active" if is_active else "resizer"
-                    ),
-                )
+        if (
+            self._resizing_tab_id is not None
+            and self._resizing_tab_id not in self._tabs
+        ):
+            self._resizing_tab_id = None
+
+        # Theme bindings are DearPyGUI commands. Only send them when drag state
+        # changes instead of rebinding every tab on every rendered frame.
+        if self.theme_manager and self._themed_resizer_tab_id != self._resizing_tab_id:
+            for tab_id in {
+                self._themed_resizer_tab_id,
+                self._resizing_tab_id,
+            } - {None}:
+                state = self._tabs.get(tab_id)
+                if state and does_item_exist(state.resizer_tag):
+                    bind_item_theme(
+                        state.resizer_tag,
+                        self.theme_manager.get_theme(
+                            "resizer_active"
+                            if tab_id == self._resizing_tab_id
+                            else "resizer"
+                        ),
+                    )
+            self._themed_resizer_tab_id = self._resizing_tab_id
 
         if self._resizing_tab_id is None:
             return
         state = self._tabs.get(self._resizing_tab_id)
-        if state is None:
-            self._resizing_tab_id = None
-            return
         _, my = get_mouse_pos(local=False)
         delta = my - self._resize_start_y
         new_height = int(self._resize_start_height + delta)
@@ -173,7 +183,6 @@ class TabbedQueryInterface:
             tab_tag=f"query_tab_{tab_id}",
             input_tag=f"query_input_{tab_id}",
             run_btn_tag=f"run_query_btn_{tab_id}",
-            format_btn_tag=f"format_btn_{tab_id}",
             save_btn_tag=f"save_json_btn_{tab_id}",
             resizer_tag=f"query_resizer_{tab_id}",
             results_window_tag=f"results_window_{tab_id}",
@@ -226,17 +235,6 @@ class TabbedQueryInterface:
                     bind_item_theme(
                         state.run_btn_tag,
                         self.theme_manager.get_theme("button_primary"),
-                    )
-
-                add_button(
-                    label="{ } Format",
-                    tag=state.format_btn_tag,
-                    callback=self._make_format_callback(state.tab_id),
-                )
-                if self.theme_manager:
-                    bind_item_theme(
-                        state.format_btn_tag,
-                        self.theme_manager.get_theme("button_secondary"),
                     )
 
                 add_button(
@@ -381,37 +379,11 @@ class TabbedQueryInterface:
 
         return callback
 
-    def _make_format_callback(self, tab_id: int):
-        def callback(sender, data):
-            self._format_query_for_tab(tab_id)
-
-        return callback
-
     def _make_save_callback(self, tab_id: int):
         def callback(sender, data):
             self._save_as_json_for_tab(tab_id)
 
         return callback
-
-    def _format_query_for_tab(self, tab_id: int):
-        state = self._tabs.get(tab_id)
-        if state is None:
-            return
-        query = get_value(state.input_tag).strip()
-        if not query:
-            if self.status_callback:
-                self.status_callback("Query is empty", True)
-            return
-        formatted = sqlparse.format(
-            query,
-            reindent=True,
-            keyword_case="upper",
-            indent_width=2,
-            wrap_after=80,
-        )
-        set_value(state.input_tag, formatted)
-        if self.status_callback:
-            self.status_callback("Query formatted", False)
 
     def poll_closed_tabs(self):
         """Called each frame to detect tabs closed via the DPG X button."""
@@ -489,10 +461,9 @@ class TabbedQueryInterface:
                 self._on_query_error(tab_id, e)
 
     def _execute_query_task(self, tab_id: int, query: str):
-        """Background thread: execute query and fetch column types."""
+        """Background thread: execute a query and reuse its returned metadata."""
         result = self.connection_pool.execute_query(tab_id, query)
-        column_types = self._get_column_types_from_query(query, result.column_names)
-        return result, column_types
+        return result, get_result_column_types(result)
 
     def _on_query_done(self, tab_id: int, payload):
         """Main-thread callback when query completes successfully."""
@@ -605,6 +576,7 @@ class TabbedQueryInterface:
             scrollX=True,
             scrollY=True,
             freeze_rows=1,
+            clipper=True,
             height=-1,
             width=-1,
             resizable=True,
@@ -794,28 +766,6 @@ class TabbedQueryInterface:
     # Helpers (shared with QueryInterface logic)
     # ------------------------------------------------------------------
 
-    def _get_column_types_from_query(self, query, columns):
-        """Fetch column types from DB metadata. Call from background thread only."""
-        column_types = {}
-        try:
-            query_lower = query.lower().strip()
-            from_match = re.search(r"\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)", query_lower)
-            if from_match:
-                table_name = from_match.group(1)
-                try:
-                    table_columns = self.db_manager.get_table_columns(table_name)
-                    table_column_types = {
-                        col_name: col_type for col_name, col_type in table_columns
-                    }
-                    for col in columns:
-                        if col in table_column_types:
-                            column_types[col] = table_column_types[col]
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        return column_types
-
     @staticmethod
     def _format_cell_value(val) -> str:
         if val is None:
@@ -826,19 +776,17 @@ class TabbedQueryInterface:
             except Exception:
                 return str(val)
         elif isinstance(val, str):
-            try:
-                return val.encode("utf-8", errors="replace").decode("utf-8")
-            except Exception:
-                return str(val)
+            return val
         return str(val)
 
     @staticmethod
     def _add_default_limit(query: str) -> str:
         try:
             query_clean = query.strip()
-            query_lower = query_clean.lower()
-            if not query_lower.startswith("select"):
+            statements = sqlparse.parse(query_clean)
+            if len(statements) != 1 or statements[0].get_type() != "SELECT":
                 return query
+            query_lower = query_clean.lower()
             limit_patterns = [
                 r"\blimit\s+\d+\b",
                 r"\blimit\s+\d+\s+offset\s+\d+\b",
