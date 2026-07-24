@@ -36,6 +36,7 @@ from components.query_interface import QueryTabState, TabbedQueryInterface  # no
 qi_mod.DEFAULT_TAB_LABEL = "Query"
 qi_mod.MAX_QUERY_TABS = 10
 qi_mod.QUERY_INPUT_HEIGHT = 150
+qi_mod.mvTable_SizingFixedFit = 0
 
 # Alias for patch with create=True (star-import names don't exist on the module)
 _P = "components.query_interface"
@@ -71,7 +72,6 @@ def _make_state(tab_id=0, label="Query 1"):
         tab_tag=f"query_tab_{tab_id}",
         input_tag=f"query_input_{tab_id}",
         run_btn_tag=f"run_query_btn_{tab_id}",
-        format_btn_tag=f"format_btn_{tab_id}",
         save_btn_tag=f"save_json_btn_{tab_id}",
         resizer_tag=f"query_resizer_{tab_id}",
         results_window_tag=f"results_window_{tab_id}",
@@ -390,54 +390,6 @@ class TestMakeApplyAndCancelRenameCallbacks(unittest.TestCase):
             mock.assert_called_once_with(3)
 
 
-class TestFormatQuery(unittest.TestCase):
-    """Test _format_query_for_tab formats SQL via sqlparse."""
-
-    @_patch("set_value")
-    @_patch("get_value", return_value="select id, name from users where id > 1")
-    def test_formats_sql(self, _get, mock_set):
-        iface = _make_interface()
-        status = MagicMock()
-        iface.status_callback = status
-        state = _make_state(tab_id=0)
-        iface._tabs[0] = state
-
-        iface._format_query_for_tab(0)
-
-        # set_value called with formatted SQL (keywords uppercased, reindented)
-        mock_set.assert_called_once()
-        formatted = mock_set.call_args[0][1]
-        self.assertIn("SELECT", formatted)
-        self.assertIn("FROM", formatted)
-        self.assertIn("WHERE", formatted)
-        status.assert_called_once_with("Query formatted", False)
-
-    @_patch("set_value")
-    @_patch("get_value", return_value="   ")
-    def test_empty_query_shows_error(self, _get, mock_set):
-        iface = _make_interface()
-        status = MagicMock()
-        iface.status_callback = status
-        state = _make_state(tab_id=0)
-        iface._tabs[0] = state
-
-        iface._format_query_for_tab(0)
-
-        mock_set.assert_not_called()
-        status.assert_called_once_with("Query is empty", True)
-
-    def test_noop_when_tab_missing(self):
-        iface = _make_interface()
-        iface._format_query_for_tab(999)
-
-    def test_make_format_callback_delegates(self):
-        iface = _make_interface()
-        with patch.object(iface, "_format_query_for_tab") as mock:
-            cb = iface._make_format_callback(7)
-            cb("s", "d")
-            mock.assert_called_once_with(7)
-
-
 class TestResizeMouseDown(unittest.TestCase):
     """Test _on_resize_mouse_down sets drag state when hovering resizer."""
 
@@ -559,7 +511,9 @@ class TestUpdateResize(unittest.TestCase):
         iface._resize_handlers_ready = True
 
         iface.update_resize()
-        # bind_item_theme called for highlight logic, but no configure_item
+        iface.update_resize()
+
+        mock_bind.assert_not_called()
 
     def test_clears_state_when_tab_gone(self):
         iface = _make_interface(theme_manager=None)
@@ -569,6 +523,58 @@ class TestUpdateResize(unittest.TestCase):
         iface.update_resize()
 
         self.assertIsNone(iface._resizing_tab_id)
+
+
+class TestQueryPerformanceHelpers(unittest.TestCase):
+    """Regression coverage for query request and result-size optimizations."""
+
+    def test_execute_query_reuses_result_column_types(self):
+        iface = _make_interface()
+        uint_type = MagicMock()
+        uint_type.name = "UInt64"
+        string_type = MagicMock()
+        string_type.name = "String"
+        result = MagicMock(
+            column_names=("id", "name"),
+            column_types=(uint_type, string_type),
+        )
+        iface.connection_pool.execute_query.return_value = result
+
+        payload = iface._execute_query_task(3, "SELECT id, name FROM events")
+
+        self.assertIs(payload[0], result)
+        self.assertEqual(payload[1], {"id": "UInt64", "name": "String"})
+        iface.connection_pool.execute_query.assert_called_once_with(
+            3, "SELECT id, name FROM events"
+        )
+        iface.db_manager.get_table_columns.assert_not_called()
+
+    def test_default_limit_applies_to_cte_select(self):
+        query = "WITH recent AS (SELECT * FROM events) SELECT * FROM recent"
+
+        limited = TabbedQueryInterface._add_default_limit(query)
+
+        self.assertEqual(limited, f"{query} LIMIT 100")
+
+    def test_default_limit_does_not_modify_non_select(self):
+        query = "INSERT INTO events VALUES (1)"
+
+        self.assertEqual(TabbedQueryInterface._add_default_limit(query), query)
+
+    @_patch("set_item_width")
+    @_patch("configure_item")
+    @_patch("add_table_column")
+    @_patch("bind_item_theme")
+    @_patch("add_table")
+    def test_results_table_enables_row_clipping(
+        self, add_table, _bind_theme, _add_column, _configure, _set_width
+    ):
+        iface = _make_interface()
+        state = _make_state()
+
+        iface._setup_results_table(state, ["id"])
+
+        self.assertTrue(add_table.call_args.kwargs["clipper"])
 
 
 if __name__ == "__main__":
