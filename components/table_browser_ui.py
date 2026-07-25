@@ -7,6 +7,9 @@ from dearpygui.dearpygui import *
 
 from utils import UIHelpers
 
+TABLE_CACHE_TTL_SECONDS = 5.0
+TABLE_SEARCH_DEBOUNCE_SECONDS = 0.2
+
 
 class TableBrowserUI:
     """Manages table browsing and filtering UI functionality."""
@@ -37,6 +40,11 @@ class TableBrowserUI:
 
         # Sequence number to discard stale async table-list results
         self._tables_seq = 0
+        self._table_cache: tuple[str, ...] | None = None
+        self._table_cache_key: tuple | None = None
+        self._table_cache_created_at = 0.0
+        self._pending_table_search: str | None = None
+        self._table_search_due_at = 0.0
 
         # Explicitly tracked active connection name (set when connecting to a saved connection)
         self.active_connection_name: str = ""
@@ -45,8 +53,50 @@ class TableBrowserUI:
         """Set callback for table single-click events to open explorer."""
         self.double_click_callback = callback
 
+    def invalidate_table_cache(self):
+        """Force the next expanded table view to refresh from ClickHouse."""
+        self._table_cache = None
+        self._table_cache_key = None
+        self._table_cache_created_at = 0.0
+
+    def _get_table_cache_key(self) -> tuple:
+        """Identify the active database without retaining credentials."""
+        connection_info = self.db_manager.connection_info
+        return (
+            connection_info.get("host", ""),
+            str(connection_info.get("port", "")),
+            connection_info.get("username", ""),
+            connection_info.get("database", ""),
+        )
+
     def filter_tables_callback(self, sender, app_data):
-        """Filter tables in the left panel based on the search query (non-blocking)."""
+        """Debounce user typing while keeping programmatic refreshes immediate."""
+        search_query = app_data or ""
+        if sender is not None:
+            self._pending_table_search = search_query
+            self._table_search_due_at = time.monotonic() + TABLE_SEARCH_DEBOUNCE_SECONDS
+            return
+
+        self._pending_table_search = None
+        self._apply_table_filter(None, search_query)
+
+    def process_pending_filter(self, now: float | None = None) -> bool:
+        """Apply the latest search once its debounce window has elapsed."""
+        if self._pending_table_search is None:
+            return False
+
+        if now is None:
+            now = time.monotonic()
+        if now < self._table_search_due_at:
+            return False
+
+        search_query = self._pending_table_search
+        self._pending_table_search = None
+        self._apply_table_filter("table_search", search_query)
+        return True
+
+    def _apply_table_filter(self, sender, app_data):
+        """Filter tables in the left panel using cached metadata when possible."""
         preserve_scroll = sender is not None
         scroll_y = 0
         if preserve_scroll:
@@ -69,19 +119,38 @@ class TableBrowserUI:
             self.show_saved_connections()
             return
 
-        # Show a loading placeholder while fetching tables in background
-        add_text("  Loading tables...", parent="tables_list", color=(100, 150, 255))
-
-        # Bump sequence so a stale async result from a previous call is ignored
+        # Every new filter supersedes any older async result.
         self._tables_seq += 1
         seq = self._tables_seq
+        cache_key = self._get_table_cache_key()
+
+        cache_is_fresh = (
+            self._table_cache_key == cache_key
+            and self._table_cache is not None
+            and time.monotonic() - self._table_cache_created_at
+            < TABLE_CACHE_TTL_SECONDS
+        )
+        if cache_is_fresh:
+            self._finish_filter_tables(
+                self._table_cache,
+                seq,
+                search_query,
+                connection_name,
+                preserve_scroll,
+                scroll_y,
+            )
+            return
+
+        # Only the initial load (or an explicit invalidation) reaches ClickHouse.
+        add_text("  Loading tables...", parent="tables_list", color=(100, 150, 255))
 
         if self.async_worker:
             self.async_worker.run_async(
                 task=lambda: self.db_manager.get_tables(),
-                on_done=lambda tables: self._finish_filter_tables(
+                on_done=lambda tables: self._on_tables_loaded(
                     tables,
                     seq,
+                    cache_key,
                     search_query,
                     connection_name,
                     preserve_scroll,
@@ -92,14 +161,45 @@ class TableBrowserUI:
         else:
             # Synchronous fallback
             all_tables = self.db_manager.get_tables()
-            self._finish_filter_tables(
+            self._on_tables_loaded(
                 all_tables,
                 seq,
+                cache_key,
                 search_query,
                 connection_name,
                 preserve_scroll,
                 scroll_y,
             )
+
+    def _on_tables_loaded(
+        self,
+        all_tables,
+        seq,
+        cache_key,
+        search_query,
+        connection_name,
+        preserve_scroll,
+        scroll_y,
+    ):
+        """Cache a current table response, then render its latest filter."""
+        if (
+            seq != self._tables_seq
+            or not self.db_manager.is_connected
+            or cache_key != self._get_table_cache_key()
+        ):
+            return
+
+        self._table_cache = tuple(all_tables)
+        self._table_cache_key = cache_key
+        self._table_cache_created_at = time.monotonic()
+        self._finish_filter_tables(
+            self._table_cache,
+            seq,
+            search_query,
+            connection_name,
+            preserve_scroll,
+            scroll_y,
+        )
 
     def _finish_filter_tables(
         self, all_tables, seq, search_query, connection_name, preserve_scroll, scroll_y

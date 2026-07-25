@@ -8,6 +8,7 @@ from dearpygui.dearpygui import *
 
 from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_EXPLORER_TABS
 from database import DatabaseManager
+from utils import get_result_column_types
 
 
 class DataExplorer:
@@ -254,14 +255,9 @@ class DataExplorer:
     # ------------------------------------------------------------------
 
     def _fetch_data_task(self, query: str, table_name: str):
-        """Run in background thread: execute query and fetch column types."""
+        """Run in background thread and reuse metadata returned with the query."""
         result = self.db_manager.execute_query(query)
-        try:
-            table_columns = self.db_manager.get_table_columns(table_name)
-            column_types = {col_name: col_type for col_name, col_type in table_columns}
-        except Exception:
-            column_types = {}
-        return result, column_types
+        return result, get_result_column_types(result)
 
     # ------------------------------------------------------------------
     # Main-thread callbacks (called via AsyncWorker queue)
@@ -332,13 +328,6 @@ class DataExplorer:
                 width_fixed=False,
                 no_resize=False,
             )
-            try:
-                configure_item(column_tag, width=200)
-            except Exception:
-                try:
-                    set_item_width(column_tag, 200)
-                except Exception:
-                    pass
 
         # Force widths after all columns created
         for column_tag in column_tags:
@@ -433,7 +422,7 @@ class DataExplorer:
         elif isinstance(val, bytes):
             cell_value = val.decode("utf-8", errors="replace")
         elif isinstance(val, str):
-            cell_value = val.encode("utf-8", errors="replace").decode("utf-8")
+            cell_value = val
         else:
             cell_value = str(val)
 

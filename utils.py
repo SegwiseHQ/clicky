@@ -171,3 +171,18 @@ def validate_connection_params(
         return False, f"Port must be a number, got: {port}"
 
     return True, ""
+
+
+def get_result_column_types(result) -> dict[str, str]:
+    """Return ClickHouse column type names already included in a query result."""
+    column_names = getattr(result, "column_names", ()) or ()
+    column_types = getattr(result, "column_types", ()) or ()
+    resolved_types = {}
+
+    for column_name, column_type in zip(column_names, column_types, strict=False):
+        type_name = getattr(column_type, "name", None)
+        if not isinstance(type_name, str):
+            type_name = str(column_type)
+        resolved_types[str(column_name)] = type_name
+
+    return resolved_types

@@ -56,6 +56,8 @@ class DatabaseManager:
             tuple: (success: bool, message: str)
         """
         with self._lock:
+            new_client = None
+            previous_client = None
             try:
                 # Validate inputs
                 if not all([host, str(port), username, database]):
@@ -68,7 +70,8 @@ class DatabaseManager:
                     return False, f"Port must be a number, got: {port}"
 
                 # Create client
-                self.client = clickhouse_connect.get_client(
+                previous_client = self.client
+                new_client = clickhouse_connect.get_client(
                     host=host,
                     port=port,
                     username=username,
@@ -81,9 +84,10 @@ class DatabaseManager:
                 )
 
                 # Test connection
-                self.client.query("SELECT 1")
+                new_client.query("SELECT 1")
 
                 # Store connection info
+                self.client = new_client
                 self.connection_info = {
                     "host": host,
                     "port": port,
@@ -91,12 +95,18 @@ class DatabaseManager:
                     "database": database,
                 }
                 self.is_connected = True
+                if previous_client is not None and previous_client is not new_client:
+                    self._close_client(previous_client)
 
                 return True, f"Connected successfully to {host}:{port}"
 
             except Exception as e:
+                self._close_client(new_client)
+                if previous_client is not new_client:
+                    self._close_client(previous_client)
                 self.client = None
                 self.is_connected = False
+                self.connection_info = {}
                 error_msg = "Connection failed:\n"
                 error_msg += f"Error type: {type(e).__name__}\n"
                 error_msg += f"Error message: {str(e)}\n"
@@ -131,6 +141,7 @@ class DatabaseManager:
             tuple: (success: bool, message: str)
         """
         with self._lock:
+            test_client = None
             try:
                 # Validate inputs
                 if not all([host, str(port), username, database]):
@@ -158,9 +169,6 @@ class DatabaseManager:
                 # Test connection
                 test_client.query("SELECT 1")
 
-                # Close test client (don't store it)
-                test_client = None
-
                 return True, f"Credentials are valid for {host}:{port}"
 
             except Exception as e:
@@ -169,6 +177,8 @@ class DatabaseManager:
                 error_msg += f"Error message: {str(e)}\n"
                 error_msg += f"Details:\n{traceback.format_exc()}"
                 return False, error_msg
+            finally:
+                self._close_client(test_client)
 
     def disconnect(self) -> str:
         """
@@ -177,13 +187,26 @@ class DatabaseManager:
         Returns:
             str: Status message
         """
-        if self.client:
+        with self._lock:
+            client = self.client
+            if not client:
+                return "Not connected to database"
             self.client = None
             self.is_connected = False
             self.connection_info = {}
-            return "Disconnected from database"
-        else:
-            return "Not connected to database"
+
+        self._close_client(client)
+        return "Disconnected from database"
+
+    @staticmethod
+    def _close_client(client) -> None:
+        """Close a ClickHouse client without masking the caller's result."""
+        if client is None:
+            return
+        try:
+            client.close()
+        except Exception:
+            pass
 
     def execute_query(self, query: str):
         """
@@ -245,9 +268,20 @@ class ConnectionPool:
         self._lock = threading.Lock()
 
     def configure(self, credentials: dict | None) -> None:
-        """Store (or clear) the credentials used to create new clients."""
+        """Store credentials and close clients tied to a different connection."""
+        credentials = dict(credentials) if credentials is not None else None
         with self._lock:
+            if credentials == self._credentials:
+                return
+            clients = list(self._clients.values())
+            self._clients.clear()
             self._credentials = credentials
+
+        for client in clients:
+            try:
+                client.close()
+            except Exception:
+                pass
 
     @property
     def is_configured(self) -> bool:
@@ -277,9 +311,18 @@ class ConnectionPool:
         )
 
         with self._lock:
-            if tab_id not in self._clients:
+            existing_client = self._clients.get(tab_id)
+            if existing_client is None:
                 self._clients[tab_id] = client
-            return self._clients[tab_id]
+                return client
+
+        # Another worker won the creation race for this tab. Keep the cached
+        # connection and release the redundant HTTP client immediately.
+        try:
+            client.close()
+        except Exception:
+            pass
+        return existing_client
 
     def execute_query(self, tab_id: int, query: str):
         """Execute a query, refreshing once if its connection reports unknown table."""
@@ -304,6 +347,18 @@ class ConnectionPool:
             client = self._clients.pop(tab_id, None)
 
         if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+    def close_all(self) -> None:
+        """Close every per-tab client."""
+        with self._lock:
+            clients = list(self._clients.values())
+            self._clients.clear()
+
+        for client in clients:
             try:
                 client.close()
             except Exception:

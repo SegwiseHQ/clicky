@@ -256,11 +256,25 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertIn("Query failed", message)
         self.assertFalse(self.db_manager.is_connected)
         self.assertIsNone(self.db_manager.client)
+        mock_client.close.assert_called_once_with()
+
+    @patch.object(database, "clickhouse_connect")
+    def test_credentials_closes_temporary_client(self, mock_clickhouse_connect):
+        mock_client = Mock()
+        mock_clickhouse_connect.get_client.return_value = mock_client
+
+        success, _ = self.db_manager.test_credentials(
+            "localhost", 8123, "default", "password", "default"
+        )
+
+        self.assertTrue(success)
+        mock_client.close.assert_called_once_with()
 
     def test_disconnect_when_connected(self):
         """Test disconnecting when there is an active connection."""
         # Arrange
-        self.db_manager.client = Mock()
+        mock_client = Mock()
+        self.db_manager.client = mock_client
         self.db_manager.is_connected = True
         self.db_manager.connection_info = {"host": "localhost"}
 
@@ -272,6 +286,7 @@ class TestDatabaseManager(unittest.TestCase):
         self.assertIsNone(self.db_manager.client)
         self.assertFalse(self.db_manager.is_connected)
         self.assertEqual(self.db_manager.connection_info, {})
+        mock_client.close.assert_called_once_with()
 
     def test_disconnect_when_not_connected(self):
         """Test disconnecting when not connected."""
@@ -491,6 +506,69 @@ class TestConnectionPool(unittest.TestCase):
 
         client.close.assert_called_once_with()
         self.assertNotIn(5, self.pool._clients)
+
+    @patch.object(database, "clickhouse_connect")
+    def test_reconfigure_closes_clients_from_previous_connection(
+        self, mock_clickhouse_connect
+    ):
+        client = Mock()
+        mock_clickhouse_connect.get_client.return_value = client
+        self.pool.get_or_create_client(5)
+
+        self.pool.configure(
+            {
+                "host": "other-host",
+                "port": 8123,
+                "username": "default",
+                "password": "password",
+                "database": "default",
+            }
+        )
+
+        client.close.assert_called_once_with()
+        self.assertEqual(self.pool._clients, {})
+
+    @patch.object(database, "clickhouse_connect")
+    def test_same_configuration_keeps_existing_clients(self, mock_clickhouse_connect):
+        client = Mock()
+        mock_clickhouse_connect.get_client.return_value = client
+        self.pool.get_or_create_client(5)
+
+        self.pool.configure(dict(self.pool._credentials))
+
+        client.close.assert_not_called()
+        self.assertIs(self.pool._clients[5], client)
+
+    @patch.object(database, "clickhouse_connect")
+    def test_client_creation_race_closes_redundant_client(
+        self, mock_clickhouse_connect
+    ):
+        cached_client = Mock()
+        redundant_client = Mock()
+
+        def create_client(**_kwargs):
+            self.pool._clients[5] = cached_client
+            return redundant_client
+
+        mock_clickhouse_connect.get_client.side_effect = create_client
+
+        result = self.pool.get_or_create_client(5)
+
+        self.assertIs(result, cached_client)
+        redundant_client.close.assert_called_once_with()
+
+    @patch.object(database, "clickhouse_connect")
+    def test_close_all_closes_every_client(self, mock_clickhouse_connect):
+        clients = [Mock(), Mock()]
+        mock_clickhouse_connect.get_client.side_effect = clients
+        self.pool.get_or_create_client(1)
+        self.pool.get_or_create_client(2)
+
+        self.pool.close_all()
+
+        for client in clients:
+            client.close.assert_called_once_with()
+        self.assertEqual(self.pool._clients, {})
 
 
 class TestPasswordFunctions(unittest.TestCase):
