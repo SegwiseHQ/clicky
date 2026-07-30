@@ -123,6 +123,32 @@ class TestMain(unittest.TestCase):
         self.assertEqual(mock_app_class.call_count, 1)
         self.assertEqual(mock_app_instance.run.call_count, 1)
 
+    @patch("main.run_release_connection_test")
+    @patch("main.ClickHouseClientApp")
+    def test_cli_runs_release_connection_test(
+        self, mock_app_class, mock_connection_test
+    ):
+        mock_connection_test.return_value = 0
+
+        result = main.cli(["--release-connection-test"])
+
+        self.assertEqual(result, 0)
+        mock_connection_test.assert_called_once_with()
+        mock_app_class.assert_not_called()
+
+    @patch("main.run_release_connection_test")
+    @patch("main.ClickHouseClientApp")
+    def test_cli_propagates_release_connection_failure(
+        self, mock_app_class, mock_connection_test
+    ):
+        mock_connection_test.return_value = 1
+
+        result = main.cli(["--release-connection-test"])
+
+        self.assertEqual(result, 1)
+        mock_connection_test.assert_called_once_with()
+        mock_app_class.assert_not_called()
+
 
 class TestMainModuleStructure(unittest.TestCase):
     """Test cases for the main module structure and metadata."""

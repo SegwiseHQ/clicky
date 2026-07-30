@@ -12,7 +12,12 @@ This refactored version uses modular architecture for better maintainability:
 - app.py: Main application orchestration
 """
 
+import sys
+
 from app import ClickHouseClientApp
+from release_smoke import run_release_connection_test
+
+RELEASE_CONNECTION_TEST_FLAG = "--release-connection-test"
 
 
 def main():
@@ -21,5 +26,15 @@ def main():
     app.run()
 
 
-if __name__ == "__main__":
+def cli(args: list[str] | None = None) -> int:
+    """Dispatch command-line smoke checks or start the GUI application."""
+    args = sys.argv[1:] if args is None else args
+    if args == [RELEASE_CONNECTION_TEST_FLAG]:
+        return run_release_connection_test()
+
     main()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli())

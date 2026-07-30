@@ -33,6 +33,17 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke test packaged ClickHouse connection
+        run: |
+          for attempt in 1 2 3; do
+            if dist/clicky.app/Contents/MacOS/clicky --release-connection-test; then
+              exit 0
+            fi
+            echo "Packaged connection test failed on attempt ${attempt}."
+            sleep 2
+          done
+          exit 1
+
       - name: Package ZIP
         run: |
           cd dist
