@@ -78,6 +78,7 @@ class TestDatabaseManager(unittest.TestCase):
             password="password",
             database="default",
             secure=True,
+            ca_cert="certifi",
             connect_timeout=10,
             send_receive_timeout=30,
             query_retries=2,
@@ -116,6 +117,7 @@ class TestDatabaseManager(unittest.TestCase):
             password="password",
             database="default",
             secure=True,
+            ca_cert="certifi",
             connect_timeout=5,
             send_receive_timeout=60,
             query_retries=1,
@@ -268,6 +270,18 @@ class TestDatabaseManager(unittest.TestCase):
         )
 
         self.assertTrue(success)
+        mock_clickhouse_connect.get_client.assert_called_once_with(
+            host="localhost",
+            port=8123,
+            username="default",
+            password="password",
+            database="default",
+            secure=True,
+            ca_cert="certifi",
+            connect_timeout=10,
+            send_receive_timeout=30,
+            query_retries=2,
+        )
         mock_client.close.assert_called_once_with()
 
     def test_disconnect_when_connected(self):
@@ -506,6 +520,27 @@ class TestConnectionPool(unittest.TestCase):
 
         client.close.assert_called_once_with()
         self.assertNotIn(5, self.pool._clients)
+
+    @patch.object(database, "clickhouse_connect")
+    def test_client_uses_certifi_ca_bundle(self, mock_clickhouse_connect):
+        client = Mock()
+        mock_clickhouse_connect.get_client.return_value = client
+
+        result = self.pool.get_or_create_client(5)
+
+        self.assertIs(result, client)
+        mock_clickhouse_connect.get_client.assert_called_once_with(
+            host="localhost",
+            port=8123,
+            username="default",
+            password="password",
+            database="default",
+            secure=True,
+            ca_cert="certifi",
+            connect_timeout=10,
+            send_receive_timeout=30,
+            query_retries=2,
+        )
 
     @patch.object(database, "clickhouse_connect")
     def test_reconfigure_closes_clients_from_previous_connection(
