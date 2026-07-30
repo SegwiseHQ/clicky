@@ -13,6 +13,8 @@ from config import (
     cipher_suite,
 )
 
+CLICKHOUSE_CA_CERT = "certifi"
+
 
 class DatabaseManager:
     """Manages ClickHouse database connections.
@@ -78,6 +80,7 @@ class DatabaseManager:
                     password=password,
                     database=database,
                     secure=True,
+                    ca_cert=CLICKHOUSE_CA_CERT,
                     connect_timeout=connect_timeout,
                     send_receive_timeout=send_receive_timeout,
                     query_retries=query_retries,
@@ -161,6 +164,7 @@ class DatabaseManager:
                     password=password,
                     database=database,
                     secure=True,
+                    ca_cert=CLICKHOUSE_CA_CERT,
                     connect_timeout=connect_timeout,
                     send_receive_timeout=send_receive_timeout,
                     query_retries=query_retries,
@@ -303,6 +307,7 @@ class ConnectionPool:
             password=creds.get("password", ""),
             database=creds["database"],
             secure=True,
+            ca_cert=CLICKHOUSE_CA_CERT,
             connect_timeout=creds.get("connect_timeout", DEFAULT_CONNECT_TIMEOUT),
             send_receive_timeout=creds.get(
                 "send_receive_timeout", DEFAULT_SEND_RECEIVE_TIMEOUT
