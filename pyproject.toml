@@ -6,11 +6,11 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
-    "clickhouse-connect>=0.8.18",
-    "cryptography>=45.0.5",
-    "dearpygui>=2.1.0",
-    "sqlparse>=0.5",
-    "pyinstaller>=6.14.2",
+    "clickhouse-connect>=1.6.0",
+    "cryptography>=49.0.0",
+    "dearpygui>=2.3.1",
+    "sqlparse>=0.5.5",
+    "pyinstaller>=6.21.0",
 ]
 
 [project.urls]
@@ -20,15 +20,23 @@ Issues = "https://github.com/SegwiseHQ/clicky/issues"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
-    "ruff>=0.9.6",
-    "pre-commit>=4.1.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
+    "pre-commit>=4.6.1",
 ]
 
 [tool.ruff]
 target-version = "py313"
 line-length = 88
-exclude = [".venv", "venv", "__pycache__", ".ruff_cache", "dist", "build"]
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".ruff_cache",
+    "dist",
+    "build",
+    "*.md",
+]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM"]
