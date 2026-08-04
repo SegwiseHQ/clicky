@@ -9,6 +9,7 @@ The main render loop must call process_pending() every frame to drain the queue.
 
 import queue
 import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -67,10 +68,10 @@ class AsyncWorker:
             try:
                 result = task()
                 if on_done is not None:
-                    self._ui_queue.put(lambda r=result: on_done(r))
+                    self.post_ui(lambda r=result: on_done(r))
             except Exception as exc:
                 if on_error is not None:
-                    self._ui_queue.put(lambda e=exc: on_error(e))
+                    self.post_ui(lambda e=exc: on_error(e))
             finally:
                 with self._lock:
                     self._active -= 1
@@ -79,11 +80,37 @@ class AsyncWorker:
         t.start()
         return t
 
-    def process_pending(self):
-        """Drain all pending UI callbacks. Must be called from the main thread each frame."""
-        while True:
+    def post_ui(self, callback: Callable[[], Any]) -> None:
+        """Schedule a callback for the next available main-thread frame budget."""
+        self._ui_queue.put(callback)
+
+    def process_pending(
+        self,
+        *,
+        time_budget_seconds: float | None = 0.004,
+        max_callbacks: int | None = 8,
+    ) -> int:
+        """Run queued UI callbacks without monopolizing the current render frame.
+
+        A callback is never interrupted. The limits are checked between callbacks,
+        so one expensive callback can exceed the target budget but the remaining
+        queue will be left for a later frame.
+        """
+        started_at = time.perf_counter()
+        processed = 0
+
+        while max_callbacks is None or processed < max_callbacks:
             try:
                 fn = self._ui_queue.get_nowait()
-                fn()
             except queue.Empty:
                 break
+            fn()
+            processed += 1
+
+            if (
+                time_budget_seconds is not None
+                and time.perf_counter() - started_at >= time_budget_seconds
+            ):
+                break
+
+        return processed

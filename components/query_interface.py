@@ -11,7 +11,15 @@ from dataclasses import dataclass
 import sqlparse
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_TAB_LABEL, MAX_QUERY_TABS, QUERY_INPUT_HEIGHT
+from config import (
+    DEFAULT_TAB_LABEL,
+    MAX_CELL_LENGTH,
+    MAX_QUERY_TABS,
+    MAX_ROWS_LIMIT,
+    QUERY_INPUT_HEIGHT,
+    RESULT_PAGE_SIZE,
+    RESULT_ROWS_PER_FRAME,
+)
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 from utils import get_result_column_types
@@ -40,10 +48,14 @@ class QueryTabState:
 
     query_running: bool = False
     input_height: int = QUERY_INPUT_HEIGHT
+    current_result_group_tag: str | None = None
     current_table_tag: str | None = None
     table_counter: int = 0
     last_query_results: list | None = None
     last_column_names: list | None = None
+    last_column_types: dict | None = None
+    result_page_index: int = 0
+    render_generation: int = 0
     loading_indicator: str | None = None
     loading_animation_running: bool = False
 
@@ -476,14 +488,12 @@ class TabbedQueryInterface:
 
         self._update_loading_message(state, "Processing results...")
 
-        if state.current_table_tag and does_item_exist(state.current_table_tag):
-            delete_item(state.current_table_tag)
-            state.current_table_tag = None
-
         if not result.result_rows:
             self._hide_loading(state)
             state.last_query_results = None
             state.last_column_names = None
+            state.last_column_types = None
+            state.result_page_index = 0
             if does_item_exist(state.save_btn_tag):
                 configure_item(state.save_btn_tag, show=False)
             if self.status_callback:
@@ -494,48 +504,18 @@ class TabbedQueryInterface:
         rows = result.result_rows
         state.last_query_results = rows
         state.last_column_names = column_names
+        state.last_column_types = column_types
+        state.result_page_index = 0
 
         if does_item_exist(state.save_btn_tag):
             configure_item(state.save_btn_tag, show=True)
 
-        if len(rows) > 100:
-            self._update_loading_message(
-                state, f"Building table with {len(rows)} rows..."
-            )
-        else:
-            self._update_loading_message(state, "Building table...")
-
-        self._setup_results_table(state, column_names, column_types)
-
-        for row_idx, row in enumerate(rows):
-            with table_row(parent=state.current_table_tag):
-                for col_idx, cell_value in enumerate(row):
-                    formatted_cell = self._format_cell_value(cell_value)
-                    original_cell = (
-                        str(cell_value) if cell_value is not None else "NULL"
-                    )
-                    cell_tag = f"query_cell_{state.tab_id}_{state.table_counter}_{row_idx}_{col_idx}"
-                    with table_cell():
-                        add_input_text(
-                            tag=f"cell_input_{cell_tag}",
-                            default_value=formatted_cell,
-                            readonly=True,
-                            width=-1,
-                            height=0,
-                            no_spaces=False,
-                            tab_input=False,
-                            hint="",
-                            multiline=False,
-                            user_data=original_cell,
-                        )
-
-        self._hide_loading(state)
-
-        if self.status_callback:
-            self.status_callback(
-                f"Query executed successfully. Rows returned: {len(rows)}. Select text and Ctrl+C to copy.",
-                False,
-            )
+        visible_rows = min(len(rows), MAX_ROWS_LIMIT)
+        self._update_loading_message(
+            state,
+            f"Preparing {visible_rows} display rows...",
+        )
+        self._render_result_page(tab_id)
 
     def _on_query_error(self, tab_id: int, e: Exception):
         """Main-thread callback when query raises an exception."""
@@ -546,6 +526,8 @@ class TabbedQueryInterface:
         self._hide_loading(state)
         state.last_query_results = None
         state.last_column_names = None
+        state.last_column_types = None
+        state.result_page_index = 0
         if does_item_exist(state.save_btn_tag):
             configure_item(state.save_btn_tag, show=False)
         if self.status_callback:
@@ -555,7 +537,13 @@ class TabbedQueryInterface:
     # Table setup
     # ------------------------------------------------------------------
 
-    def _setup_results_table(self, state: QueryTabState, columns, column_types=None):
+    def _setup_results_table(
+        self,
+        state: QueryTabState,
+        columns,
+        column_types=None,
+        parent: str | None = None,
+    ):
         if column_types is None:
             column_types = {}
 
@@ -567,7 +555,7 @@ class TabbedQueryInterface:
 
         add_table(
             tag=state.current_table_tag,
-            parent=state.results_window_tag,
+            parent=parent or state.results_window_tag,
             borders_innerH=True,
             borders_innerV=True,
             borders_outerH=True,
@@ -610,16 +598,201 @@ class TabbedQueryInterface:
                 except Exception:
                     pass
 
+    def _clear_current_results(self, state: QueryTabState) -> None:
+        """Remove the current result group, including its table and pager."""
+        if state.current_result_group_tag and does_item_exist(
+            state.current_result_group_tag
+        ):
+            delete_item(state.current_result_group_tag)
+        elif state.current_table_tag and does_item_exist(state.current_table_tag):
+            delete_item(state.current_table_tag)
+        state.current_result_group_tag = None
+        state.current_table_tag = None
+
+    def _render_result_page(self, tab_id: int) -> None:
+        """Create one bounded page and enqueue its rows in small frame chunks."""
+        state = self._tabs.get(tab_id)
+        if state is None or not state.last_query_results or not state.last_column_names:
+            return
+
+        total_rows = len(state.last_query_results)
+        display_rows = min(total_rows, MAX_ROWS_LIMIT)
+        page_count = max(1, (display_rows + RESULT_PAGE_SIZE - 1) // RESULT_PAGE_SIZE)
+        state.result_page_index = max(0, min(state.result_page_index, page_count - 1))
+        page_start = state.result_page_index * RESULT_PAGE_SIZE
+        page_end = min(page_start + RESULT_PAGE_SIZE, display_rows)
+        page_rows = state.last_query_results[page_start:page_end]
+
+        state.render_generation += 1
+        generation = state.render_generation
+        self._clear_current_results(state)
+        self._hide_loading(state)
+
+        next_counter = state.table_counter + 1
+        result_group_tag = f"query_result_group_{tab_id}_{next_counter}"
+        pager_tag = f"query_result_pager_{tab_id}_{next_counter}"
+        add_group(tag=result_group_tag, parent=state.results_window_tag)
+        add_group(tag=pager_tag, parent=result_group_tag, horizontal=True)
+        state.current_result_group_tag = result_group_tag
+
+        previous_tag = f"query_result_previous_{tab_id}_{next_counter}"
+        next_tag = f"query_result_next_{tab_id}_{next_counter}"
+        add_button(
+            label="Previous",
+            tag=previous_tag,
+            parent=pager_tag,
+            enabled=state.result_page_index > 0,
+            callback=lambda s, d: self._change_result_page(tab_id, -1),
+        )
+        add_text(
+            f"Rows {page_start + 1}-{page_end} of {display_rows}",
+            parent=pager_tag,
+        )
+        add_button(
+            label="Next",
+            tag=next_tag,
+            parent=pager_tag,
+            enabled=state.result_page_index + 1 < page_count,
+            callback=lambda s, d: self._change_result_page(tab_id, 1),
+        )
+        if total_rows > display_rows:
+            add_text(
+                f"Display capped at {display_rows:,} of {total_rows:,} returned rows; export still includes all rows.",
+                parent=result_group_tag,
+                color=(255, 193, 7),
+            )
+
+        if self.theme_manager:
+            button_theme = self.theme_manager.get_theme("button_secondary")
+            bind_item_theme(previous_tag, button_theme)
+            bind_item_theme(next_tag, button_theme)
+
+        self._setup_results_table(
+            state,
+            state.last_column_names,
+            state.last_column_types,
+            parent=result_group_tag,
+        )
+        self._queue_result_rows_chunk(
+            tab_id,
+            generation,
+            page_rows,
+            page_start,
+            0,
+            total_rows,
+            display_rows,
+        )
+
+    def _change_result_page(self, tab_id: int, delta: int) -> None:
+        state = self._tabs.get(tab_id)
+        if state is None:
+            return
+        state.result_page_index += delta
+        self._render_result_page(tab_id)
+
+    def _queue_result_rows_chunk(
+        self,
+        tab_id: int,
+        generation: int,
+        rows,
+        page_start: int,
+        chunk_start: int,
+        total_rows: int,
+        display_rows: int,
+    ) -> None:
+        def callback():
+            self._render_result_rows_chunk(
+                tab_id,
+                generation,
+                rows,
+                page_start,
+                chunk_start,
+                total_rows,
+                display_rows,
+            )
+
+        if self.async_worker:
+            self.async_worker.post_ui(callback)
+        else:
+            callback()
+
+    def _render_result_rows_chunk(
+        self,
+        tab_id: int,
+        generation: int,
+        rows,
+        page_start: int,
+        chunk_start: int,
+        total_rows: int,
+        display_rows: int,
+    ) -> None:
+        """Append a small result-row chunk, then yield to a later frame."""
+        state = self._tabs.get(tab_id)
+        if (
+            state is None
+            or generation != state.render_generation
+            or not state.current_table_tag
+            or not does_item_exist(state.current_table_tag)
+        ):
+            return
+
+        chunk_end = min(chunk_start + RESULT_ROWS_PER_FRAME, len(rows))
+        for page_row_idx in range(chunk_start, chunk_end):
+            row = rows[page_row_idx]
+            row_idx = page_start + page_row_idx
+            with table_row(parent=state.current_table_tag):
+                for col_idx, cell_value in enumerate(row):
+                    original_cell = self._cell_value_to_text(cell_value)
+                    formatted_cell = self._truncate_cell_text(original_cell)
+                    add_selectable(
+                        label=formatted_cell,
+                        tag=f"query_cell_{state.tab_id}_{state.table_counter}_{row_idx}_{col_idx}",
+                        span_columns=False,
+                        height=0,
+                        callback=self._copy_query_cell,
+                        user_data=original_cell,
+                    )
+
+        if chunk_end < len(rows):
+            self._queue_result_rows_chunk(
+                tab_id,
+                generation,
+                rows,
+                page_start,
+                chunk_end,
+                total_rows,
+                display_rows,
+            )
+            return
+
+        if self.status_callback:
+            range_end = page_start + len(rows)
+            capped_suffix = (
+                f" Display capped at {display_rows:,}; export includes all rows."
+                if total_rows > display_rows
+                else ""
+            )
+            self.status_callback(
+                f"Query executed successfully. Showing rows {page_start + 1}-{range_end} of {display_rows:,}. Click a cell to copy.{capped_suffix}",
+                False,
+            )
+
+    def _copy_query_cell(self, sender, app_data, user_data) -> None:
+        value = user_data if user_data is not None else ""
+        set_clipboard_text(value)
+        if self.status_callback:
+            preview = value[:50]
+            suffix = "..." if len(value) > 50 else ""
+            self.status_callback(f"Copied to clipboard: {preview}{suffix}", False)
+
     # ------------------------------------------------------------------
     # Loading indicator (per-tab)
     # ------------------------------------------------------------------
 
     def _show_loading(self, state: QueryTabState):
         self._hide_loading(state)
-
-        if state.current_table_tag and does_item_exist(state.current_table_tag):
-            delete_item(state.current_table_tag)
-            state.current_table_tag = None
+        state.render_generation += 1
+        self._clear_current_results(state)
 
         ts = int(time.time())
         state.loading_indicator = f"loading_{state.tab_id}_{ts}"
@@ -767,7 +940,7 @@ class TabbedQueryInterface:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _format_cell_value(val) -> str:
+    def _cell_value_to_text(val) -> str:
         if val is None:
             return "NULL"
         elif isinstance(val, bytes):
@@ -775,9 +948,17 @@ class TabbedQueryInterface:
                 return val.decode("utf-8", errors="replace")
             except Exception:
                 return str(val)
-        elif isinstance(val, str):
-            return val
-        return str(val)
+        return val if isinstance(val, str) else str(val)
+
+    @staticmethod
+    def _truncate_cell_text(value: str) -> str:
+        if len(value) > MAX_CELL_LENGTH:
+            return value[: MAX_CELL_LENGTH - 3] + "..."
+        return value
+
+    @classmethod
+    def _format_cell_value(cls, val) -> str:
+        return cls._truncate_cell_text(cls._cell_value_to_text(val))
 
     @staticmethod
     def _add_default_limit(query: str) -> str:

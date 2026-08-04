@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 from dearpygui.dearpygui import *
 
-from config import DEFAULT_LIMIT, MAX_CELL_LENGTH, MAX_EXPLORER_TABS
+from config import (
+    DEFAULT_LIMIT,
+    MAX_CELL_LENGTH,
+    MAX_EXPLORER_TABS,
+    RESULT_ROWS_PER_FRAME,
+)
 from database import DatabaseManager
 from utils import get_result_column_types
 
@@ -32,6 +37,8 @@ class DataExplorer:
         self.sort_column: str | None = None
         self.sort_ascending: bool = True
         self._refresh_seq = 0
+        self._render_generation = 0
+        self._active_table_tag: str | None = None
         self._last_status_callback = None
 
         # Per-instance widget tags derived from prefix
@@ -222,6 +229,8 @@ class DataExplorer:
         # Bump sequence number — any in-flight fetch with an older seq will be discarded
         self._refresh_seq += 1
         seq = self._refresh_seq
+        self._render_generation += 1
+        self._active_table_tag = None
 
         # Show placeholder immediately on the main thread
         if does_item_exist(self.main_table_tag):
@@ -300,6 +309,7 @@ class DataExplorer:
                 scrollX=True,
                 scrollY=True,
                 freeze_rows=1,
+                clipper=True,
                 height=-1,
                 resizable=True,
                 policy=mvTable_SizingFixedFit,
@@ -312,6 +322,8 @@ class DataExplorer:
                 color=(255, 0, 0),
             )
             return
+
+        self._active_table_tag = table_tag
 
         if self.table_theme:
             bind_item_theme(table_tag, self.table_theme)
@@ -359,8 +371,55 @@ class DataExplorer:
                     height=50,
                 )
 
-        # Data rows
-        for row_idx, row in enumerate(result.result_rows):
+        self._queue_data_rows_chunk(
+            table_tag,
+            result.result_rows,
+            0,
+            self._render_generation,
+            status_callback,
+        )
+
+    def _queue_data_rows_chunk(
+        self,
+        table_tag: str,
+        rows,
+        chunk_start: int,
+        generation: int,
+        status_callback=None,
+    ) -> None:
+        def callback():
+            self._render_data_rows_chunk(
+                table_tag,
+                rows,
+                chunk_start,
+                generation,
+                status_callback,
+            )
+
+        if self.async_worker:
+            self.async_worker.post_ui(callback)
+        else:
+            callback()
+
+    def _render_data_rows_chunk(
+        self,
+        table_tag: str,
+        rows,
+        chunk_start: int,
+        generation: int,
+        status_callback=None,
+    ) -> None:
+        """Append a bounded Explorer row chunk, then yield to a later frame."""
+        if (
+            generation != self._render_generation
+            or table_tag != self._active_table_tag
+            or not does_item_exist(table_tag)
+        ):
+            return
+
+        chunk_end = min(chunk_start + RESULT_ROWS_PER_FRAME, len(rows))
+        for row_idx in range(chunk_start, chunk_end):
+            row = rows[row_idx]
             with table_row(parent=table_tag):
                 for col_idx, val in enumerate(row):
                     try:
@@ -394,9 +453,17 @@ class DataExplorer:
                             },
                         )
 
-        if status_callback:
+        if chunk_end < len(rows):
+            self._queue_data_rows_chunk(
+                table_tag,
+                rows,
+                chunk_end,
+                generation,
+                status_callback,
+            )
+        elif status_callback:
             status_callback(
-                f"Explorer: Showing {len(result.result_rows)} rows from {self.current_table}"
+                f"Explorer: Showing {len(rows)} rows from {self.current_table}"
             )
 
     def _on_data_error(self, e: Exception, seq: int, status_callback=None):
