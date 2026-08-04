@@ -1,5 +1,5 @@
 cask "clicky" do
-  version "0.2.1"
+  version "0.3.0"
   sha256 "REPLACE_WITH_ARM64_SHA256"
 
   url "https://github.com/SegwiseHQ/clicky/releases/download/v#{version}/clicky-macos-arm64.zip"
