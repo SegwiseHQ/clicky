@@ -21,8 +21,12 @@ sys.modules["dearpygui.dearpygui"] = dpg_mock
 # Mock config with real values
 config_mock = MagicMock()
 config_mock.DEFAULT_TAB_LABEL = "Query"
+config_mock.MAX_CELL_LENGTH = 300
 config_mock.MAX_QUERY_TABS = 10
+config_mock.MAX_ROWS_LIMIT = 1000
 config_mock.QUERY_INPUT_HEIGHT = 150
+config_mock.RESULT_PAGE_SIZE = 100
+config_mock.RESULT_ROWS_PER_FRAME = 20
 sys.modules["config"] = config_mock
 
 # Mock other dependencies
@@ -34,8 +38,12 @@ from components.query_interface import QueryTabState, TabbedQueryInterface  # no
 
 # Force real values on the imported module
 qi_mod.DEFAULT_TAB_LABEL = "Query"
+qi_mod.MAX_CELL_LENGTH = 300
 qi_mod.MAX_QUERY_TABS = 10
+qi_mod.MAX_ROWS_LIMIT = 1000
 qi_mod.QUERY_INPUT_HEIGHT = 150
+qi_mod.RESULT_PAGE_SIZE = 100
+qi_mod.RESULT_ROWS_PER_FRAME = 20
 qi_mod.mvTable_SizingFixedFit = 0
 
 # Alias for patch with create=True (star-import names don't exist on the module)
@@ -47,7 +55,7 @@ def _patch(name, **kwargs):
     return patch(f"{_P}.{name}", create=True, **kwargs)
 
 
-def _make_interface(theme_manager="DEFAULT"):
+def _make_interface(theme_manager="DEFAULT", async_worker=None):
     """Create a TabbedQueryInterface with mocked dependencies.
 
     Always passes a MagicMock theme_manager to __init__ so that
@@ -59,7 +67,12 @@ def _make_interface(theme_manager="DEFAULT"):
     pool = MagicMock()
     pool.is_configured = True
     db = MagicMock()
-    iface = TabbedQueryInterface(pool, db, theme_manager=MagicMock())
+    iface = TabbedQueryInterface(
+        pool,
+        db,
+        theme_manager=MagicMock(),
+        async_worker=async_worker,
+    )
     iface.theme_manager = theme_manager
     return iface
 
@@ -575,6 +588,75 @@ class TestQueryPerformanceHelpers(unittest.TestCase):
         iface._setup_results_table(state, ["id"])
 
         self.assertTrue(add_table.call_args.kwargs["clipper"])
+
+    @_patch("add_text")
+    @_patch("add_button")
+    @_patch("add_group")
+    @_patch("does_item_exist", return_value=False)
+    def test_result_page_caps_display_and_keeps_full_export(
+        self, _exists, _add_group, _add_button, add_text
+    ):
+        iface = _make_interface(theme_manager=None, async_worker=MagicMock())
+        state = _make_state(tab_id=2)
+        state.last_query_results = [(i,) for i in range(1500)]
+        state.last_column_names = ("id",)
+        state.last_column_types = {"id": "UInt64"}
+        iface._tabs[2] = state
+
+        with (
+            patch.object(iface, "_hide_loading"),
+            patch.object(iface, "_setup_results_table"),
+            patch.object(iface, "_queue_result_rows_chunk") as queue_chunk,
+        ):
+            iface._render_result_page(2)
+
+        self.assertEqual(len(state.last_query_results), 1500)
+        queued_rows = queue_chunk.call_args.args[2]
+        self.assertEqual(len(queued_rows), qi_mod.RESULT_PAGE_SIZE)
+        self.assertEqual(queue_chunk.call_args.args[-2:], (1500, 1000))
+        warning = [call.args[0] for call in add_text.call_args_list if call.args]
+        self.assertTrue(any("capped at 1,000 of 1,500" in text for text in warning))
+
+    @_patch("add_input_text")
+    @_patch("add_selectable")
+    @_patch("table_row")
+    @_patch("does_item_exist", return_value=True)
+    def test_result_chunk_uses_lightweight_selectable_cells(
+        self, _exists, _table_row, add_selectable, add_input_text
+    ):
+        iface = _make_interface(async_worker=MagicMock())
+        state = _make_state(tab_id=1)
+        state.current_table_tag = "result_table"
+        state.render_generation = 3
+        iface._tabs[1] = state
+        rows = [(1, "a"), (2, "b")]
+
+        iface._render_result_rows_chunk(1, 3, rows, 0, 0, 2, 2)
+
+        self.assertEqual(add_selectable.call_count, 4)
+        add_input_text.assert_not_called()
+        iface.async_worker.post_ui.assert_not_called()
+
+    @_patch("add_selectable")
+    @_patch("does_item_exist", return_value=True)
+    def test_stale_result_chunk_is_discarded(self, _exists, add_selectable):
+        iface = _make_interface(async_worker=MagicMock())
+        state = _make_state(tab_id=1)
+        state.current_table_tag = "result_table"
+        state.render_generation = 4
+        iface._tabs[1] = state
+
+        iface._render_result_rows_chunk(1, 3, [(1,)], 0, 0, 1, 1)
+
+        add_selectable.assert_not_called()
+
+    def test_display_values_are_truncated_but_copy_value_can_remain_full(self):
+        value = "x" * (qi_mod.MAX_CELL_LENGTH + 20)
+
+        formatted = TabbedQueryInterface._format_cell_value(value)
+
+        self.assertEqual(len(formatted), qi_mod.MAX_CELL_LENGTH)
+        self.assertTrue(formatted.endswith("..."))
 
 
 if __name__ == "__main__":

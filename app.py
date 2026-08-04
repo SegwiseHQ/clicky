@@ -151,9 +151,10 @@ class ClickHouseClientApp:
         # Show saved connections in the left panel
         self.table_browser_ui.show_saved_connections()
 
-        # Manual render loop: drain async UI callbacks each frame so background
+        # Manual render loop: process async UI callbacks each frame so background
         # threads can safely update the UI without thread-safety issues.
         while is_dearpygui_running():
+            # Keep expensive result-grid callbacks within a small per-frame budget.
             self.async_worker.process_pending()
             self.table_browser_ui.process_pending_filter()
             self.ui_layout.splitter.update()
