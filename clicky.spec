@@ -64,7 +64,7 @@ app = BUNDLE(
     icon='./assets/icons/app.icns',
     bundle_identifier='com.segwise.clicky',
     info_plist={
-        'CFBundleShortVersionString': '0.2.1',
+        'CFBundleShortVersionString': '0.3.0',
         'CFBundleName': 'Clicky',
         'CFBundleDisplayName': 'Clicky',
         'NSHighResolutionCapable': True,
