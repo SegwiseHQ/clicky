@@ -1,5 +1,6 @@
 """Connection management functionality for ClickHouse Client."""
 
+import logging
 import time
 import traceback
 
@@ -21,6 +22,8 @@ from credentials_manager import CredentialsManager
 from database import DatabaseManager
 from utils import UIHelpers, validate_connection_params
 
+logger = logging.getLogger(__name__)
+
 
 class ConnectionManager:
     """Manages database connections and related operations."""
@@ -40,6 +43,12 @@ class ConnectionManager:
 
         # Optional callbacks for additional functionality
         self.on_connect_success = None  # Called after successful connection
+        self.on_connect_failure = None  # Called after a failed connection attempt
+
+    def _notify_connect_failure(self):
+        """Notify UI components that the current connection attempt has ended."""
+        if self.on_connect_failure:
+            self.on_connect_failure()
 
     def _show_modal_status(self, message, error=False):
         """Show a status message in the connection modal's status area."""
@@ -55,7 +64,7 @@ class ConnectionManager:
 
     def get_connection_parameters(self):
         """Get connection parameters, prioritizing form values over stored credentials."""
-        print("[DEBUG] Attempting to get connection parameters")
+        logger.debug("Attempting to get connection parameters")
 
         # Try to get values from form first
         host = UIHelpers.safe_get_value("host_input", None)
@@ -73,7 +82,7 @@ class ConnectionManager:
         )
 
         if form_has_values:
-            print("[DEBUG] Using form values")
+            logger.debug("Using form values")
             # Use form values, with defaults for empty optional fields
             return {
                 "host": host or DEFAULT_HOST,
@@ -83,7 +92,7 @@ class ConnectionManager:
                 "database": database or DEFAULT_DATABASE,
             }
         elif self.stored_credentials:
-            print("[DEBUG] Form values not available, using stored credentials")
+            logger.debug("Form values not available, using stored credentials")
             return {
                 "host": self.stored_credentials.get("host", DEFAULT_HOST),
                 "port": self.stored_credentials.get("port", DEFAULT_PORT),
@@ -92,8 +101,8 @@ class ConnectionManager:
                 "database": self.stored_credentials.get("database", DEFAULT_DATABASE),
             }
         else:
-            print(
-                "[DEBUG] No form values or stored credentials available, using defaults"
+            logger.debug(
+                "No form values or stored credentials available, using defaults"
             )
             return {
                 "host": DEFAULT_HOST,
@@ -116,8 +125,12 @@ class ConnectionManager:
             password = params["password"]
             database = params["database"]
 
-            print(
-                f"[DEBUG] Connection parameters: host={host}, port={port}, username={username}, database={database}"
+            logger.debug(
+                "Connection parameters: host=%s, port=%s, username=%s, database=%s",
+                host,
+                port,
+                username,
+                database,
             )
 
             is_valid, error_msg = validate_connection_params(
@@ -126,7 +139,7 @@ class ConnectionManager:
             if not is_valid:
                 raise ValueError(error_msg)
 
-            print("[DEBUG] Connection parameters validated successfully")
+            logger.debug("Connection parameters validated successfully")
 
         except Exception as e:
             # Validation failed on main thread — report immediately
@@ -139,6 +152,7 @@ class ConnectionManager:
                     self.theme_manager.create_connection_indicator_theme(False),
                 )
             UIHelpers.safe_configure_item("connect_button", enabled=True)
+            self._notify_connect_failure()
             return
 
         port = int(port)
@@ -177,8 +191,8 @@ class ConnectionManager:
         success, message = result
         UIHelpers.safe_configure_item("connect_button", enabled=True)
 
-        print(
-            f"[DEBUG] Connection attempt result: success={success}, message={message}"
+        logger.debug(
+            "Connection attempt result: success=%s, message=%s", success, message
         )
 
         if success:
@@ -200,6 +214,7 @@ class ConnectionManager:
                     "connection_indicator",
                     self.theme_manager.create_connection_indicator_theme(False),
                 )
+            self._notify_connect_failure()
 
     def _on_connect_error(self, e: Exception):
         """Called on main thread when connection raises an unexpected exception."""
@@ -212,6 +227,7 @@ class ConnectionManager:
                 "connection_indicator",
                 self.theme_manager.create_connection_indicator_theme(False),
             )
+        self._notify_connect_failure()
 
     def test_credentials_callback(self, sender, data):
         """Test database credentials without establishing a persistent connection (non-blocking)."""
@@ -226,8 +242,12 @@ class ConnectionManager:
             password = params["password"]
             database = params["database"]
 
-            print(
-                f"[DEBUG] Testing credentials: host={host}, port={port}, username={username}, database={database}"
+            logger.debug(
+                "Testing credentials: host=%s, port=%s, username=%s, database=%s",
+                host,
+                port,
+                username,
+                database,
             )
 
             is_valid, error_msg = validate_connection_params(
@@ -236,7 +256,7 @@ class ConnectionManager:
             if not is_valid:
                 raise ValueError(error_msg)
 
-            print("[DEBUG] Connection parameters validated successfully")
+            logger.debug("Connection parameters validated successfully")
 
         except Exception as e:
             error_msg = f"Credential test failed:\n{str(e)}"
@@ -285,7 +305,7 @@ class ConnectionManager:
         success, message = result
         UIHelpers.safe_configure_item("connect_button", enabled=True)
 
-        print(f"[DEBUG] Credential test result: success={success}, message={message}")
+        logger.debug("Credential test result: success=%s, message=%s", success, message)
 
         if success:
             self._show_modal_status(f"✓ {message}", error=False)
@@ -322,18 +342,18 @@ class ConnectionManager:
     def auto_load_and_connect(self):
         """Auto-load credentials without attempting connection on startup."""
         try:
-            print("[DEBUG] Starting auto_load_credentials")
+            logger.debug("Starting auto_load_credentials")
 
             # Try to load the first available credentials
             success, credentials, message = (
                 self.credentials_manager.load_credentials_legacy()
             )
-            print(
-                f"[DEBUG] Load credentials result: success={success}, message={message}"
+            logger.debug(
+                "Load credentials result: success=%s, message=%s", success, message
             )
 
             if credentials:
-                print(f"[DEBUG] Credentials found: {credentials}")
+                logger.debug("Saved credentials found")
 
             if success and credentials:
                 StatusManager.show_status(
@@ -346,23 +366,23 @@ class ConnectionManager:
                 # Only populate the form if the form elements exist (modal is open)
                 if does_item_exist("host_input"):
                     self.set_form_values(credentials)
-                    print("[DEBUG] Form populated with auto-loaded credentials")
+                    logger.debug("Form populated with auto-loaded credentials")
                 else:
-                    print(
-                        "[DEBUG] Form elements don't exist yet, credentials stored for later use"
+                    logger.debug(
+                        "Form elements do not exist yet; credentials stored for later use"
                     )
 
                 # No auto-connecting anymore
-                print("[DEBUG] Credentials loaded but not auto-connecting")
+                logger.debug("Credentials loaded but not auto-connecting")
             else:
-                print("[DEBUG] No credentials found or load failed")
+                logger.debug("No credentials found or load failed")
                 StatusManager.show_status(
                     "No saved credentials found. Please enter connection details.",
                     error=False,
                 )
 
         except Exception as e:
-            print(f"[DEBUG] Auto-load exception: {str(e)}")
+            logger.debug("Auto-load exception: %s", e, exc_info=True)
             StatusManager.show_status(f"Auto-load failed: {str(e)}", error=True)
 
     def set_form_values(self, credentials: dict):

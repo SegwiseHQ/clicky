@@ -1,8 +1,11 @@
 """Utility functions for ClickHouse Client."""
 
+import logging
 import os
 
 from dearpygui.dearpygui import *
+
+logger = logging.getLogger(__name__)
 
 
 class FontManager:
@@ -60,8 +63,9 @@ class FontManager:
             # Try to load the bundled font first
             if os.path.exists(bundled_font_path):
                 try:
-                    print(
-                        f"Loading bundled JetBrains Mono font from: {bundled_font_path}"
+                    logger.debug(
+                        "Loading bundled JetBrains Mono font from: %s",
+                        bundled_font_path,
                     )
                     monospace_font = FontManager._load_font_with_icons(
                         bundled_font_path, 16
@@ -69,12 +73,12 @@ class FontManager:
                     bind_font(monospace_font)
                     return True
                 except Exception as e:
-                    print(f"Failed to load bundled font: {e}")
+                    logger.debug("Failed to load bundled font: %s", e, exc_info=True)
             else:
-                print(f"Bundled font not found at: {bundled_font_path}")
+                logger.debug("Bundled font not found at: %s", bundled_font_path)
 
             # Fallback to system fonts if bundled font fails
-            print("Bundled font not available, trying system fallback fonts...")
+            logger.debug("Bundled font not available; trying system fallback fonts")
             system_fallback_fonts = [
                 ("~/Library/Fonts/JetBrainsMono-Regular.ttf", "JetBrains Mono (User)"),
                 ("/System/Library/Fonts/Monaco.ttf", "Monaco"),
@@ -88,8 +92,10 @@ class FontManager:
                         font_path = os.path.expanduser(font_path)
 
                     if os.path.exists(font_path):
-                        print(
-                            f"Loading system fallback font {font_name} from: {font_path}"
+                        logger.debug(
+                            "Loading system fallback font %s from: %s",
+                            font_name,
+                            font_path,
                         )
                         monospace_font = FontManager._load_font_with_icons(
                             font_path, 14
@@ -97,11 +103,13 @@ class FontManager:
                         bind_font(monospace_font)
                         return True
                 except Exception as e:
-                    print(f"Failed to load {font_name} font: {e}")
+                    logger.debug(
+                        "Failed to load %s font: %s", font_name, e, exc_info=True
+                    )
                     continue
 
             # Use default font if all custom fonts fail
-            print("Using default system font")
+            logger.debug("Using default system font")
             return False
 
 
@@ -127,7 +135,7 @@ class UIHelpers:
             else:
                 return False
         except Exception as e:
-            print(f"[DEBUG] Failed to configure item {tag}: {e}")
+            logger.debug("Failed to configure item %s: %s", tag, e, exc_info=True)
             return False
 
     @staticmethod
@@ -141,7 +149,7 @@ class UIHelpers:
             else:
                 return False
         except Exception as e:
-            print(f"[DEBUG] Failed to bind theme to {tag}: {e}")
+            logger.debug("Failed to bind theme to %s: %s", tag, e, exc_info=True)
             return False
 
 

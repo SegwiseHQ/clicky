@@ -1,5 +1,7 @@
 """Main application class for ClickHouse Client."""
 
+import logging
+
 from dearpygui.dearpygui import *
 
 from async_worker import AsyncWorker
@@ -16,6 +18,8 @@ from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 from theme_manager import ThemeManager
 from utils import UIHelpers
+
+logger = logging.getLogger(__name__)
 
 
 class ClickHouseClientApp:
@@ -85,6 +89,9 @@ class ClickHouseClientApp:
 
         # Set up callbacks for connection manager
         self.connection_manager.on_connect_success = self._handle_connect_success
+        self.connection_manager.on_connect_failure = (
+            self.table_browser_ui.handle_connect_failure
+        )
 
         # Initialize status manager with theme
         StatusManager.set_theme_manager(self.theme_manager)
@@ -114,6 +121,8 @@ class ClickHouseClientApp:
     def _handle_connect_success(self):
         """Handle additional tasks after successful connection."""
         try:
+            self.table_browser_ui.clear_connection_failure_notice()
+
             # Configure the connection pool with the current credentials
             params = self.connection_manager.get_connection_parameters()
             if params:
@@ -128,7 +137,7 @@ class ClickHouseClientApp:
             self.table_browser_ui.filter_tables_callback(None, current_search)
 
         except Exception as e:
-            print(f"[DEBUG] Error in connect success handler: {str(e)}")
+            logger.debug("Error in connect success handler: %s", e, exc_info=True)
 
     def _handle_credentials_saved(self):
         """Handle tasks after credentials are saved."""
@@ -136,7 +145,7 @@ class ClickHouseClientApp:
             # Update the connections list in the table browser UI
             self.table_browser_ui.show_saved_connections()
         except Exception as e:
-            print(f"[DEBUG] Error in credentials saved handler: {str(e)}")
+            logger.debug("Error in credentials saved handler: %s", e, exc_info=True)
 
     def run(self):
         """Run the application."""
@@ -157,6 +166,7 @@ class ClickHouseClientApp:
             # Keep expensive result-grid callbacks within a small per-frame budget.
             self.async_worker.process_pending()
             self.table_browser_ui.process_pending_filter()
+            self.table_browser_ui.process_pending_connection_notice()
             self.ui_layout.splitter.update()
             self.tabbed_query_interface.update_resize()
             self.tabbed_query_interface.poll_closed_tabs()
