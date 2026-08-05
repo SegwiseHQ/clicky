@@ -18,6 +18,13 @@ import main
 class TestMain(unittest.TestCase):
     """Test cases for the main module."""
 
+    @patch("main.logging.disable")
+    def test_frozen_runtime_disables_debug_logging(self, disable_logging):
+        with patch.object(main.sys, "frozen", True, create=True):
+            main.configure_runtime_logging()
+
+        disable_logging.assert_called_once_with(main.logging.DEBUG)
+
     @patch("main.ClickHouseClientApp")
     def test_main_function_creates_app_and_runs(self, mock_app_class):
         """Test that main() creates ClickHouseClientApp instance and calls run()."""

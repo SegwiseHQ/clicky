@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import logging
 import os
 import re
 import time
@@ -23,6 +24,8 @@ from config import (
 from database import ConnectionPool, DatabaseManager
 from icon_manager import icon_manager
 from utils import get_result_column_types
+
+logger = logging.getLogger(__name__)
 
 MIN_QUERY_INPUT_HEIGHT = 80
 MAX_QUERY_INPUT_HEIGHT = 600
@@ -826,7 +829,7 @@ class TabbedQueryInterface:
             if self.status_callback:
                 self.status_callback("Executing query...", False)
         except Exception as e:
-            print(f"Error showing loading indicator: {e}")
+            logger.debug("Error showing loading indicator: %s", e, exc_info=True)
             state.loading_indicator = None
             state.loading_animation_running = False
 
@@ -839,7 +842,7 @@ class TabbedQueryInterface:
             ):
                 set_value(f"{state.loading_indicator}_text", f"⏳ {message}")
         except Exception as e:
-            print(f"Error updating loading message: {e}")
+            logger.debug("Error updating loading message: %s", e, exc_info=True)
 
     def _hide_loading(self, state: QueryTabState):
         state.loading_animation_running = False
@@ -848,7 +851,7 @@ class TabbedQueryInterface:
                 if does_item_exist(state.loading_indicator):
                     delete_item(state.loading_indicator)
             except Exception as e:
-                print(f"Error hiding loading indicator: {e}")
+                logger.debug("Error hiding loading indicator: %s", e, exc_info=True)
             state.loading_indicator = None
 
     # ------------------------------------------------------------------

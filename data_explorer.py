@@ -1,5 +1,6 @@
 """Data Explorer component for ClickHouse Client."""
 
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ from config import (
 )
 from database import DatabaseManager
 from utils import get_result_column_types
+
+logger = logging.getLogger(__name__)
 
 
 class DataExplorer:
@@ -179,7 +182,7 @@ class DataExplorer:
                 self._clear_row_details()
 
         except Exception as e:
-            print(f"[DataExplorer] Error in explorer setup: {e}")
+            logger.debug("Error in explorer setup: %s", e, exc_info=True)
             if status_callback:
                 status_callback(f"Error setting up data explorer: {str(e)}", True)
             return False
@@ -315,7 +318,7 @@ class DataExplorer:
                 policy=mvTable_SizingFixedFit,
             )
         except Exception as table_e:
-            print(f"[DataExplorer] Error creating table: {table_e}")
+            logger.debug("Error creating table: %s", table_e, exc_info=True)
             add_text(
                 f"Error creating data table: {str(table_e)}",
                 parent=self.main_table_tag,
@@ -515,7 +518,7 @@ class DataExplorer:
             self._update_row_details(row_data, row_idx)
 
         except Exception as e:
-            print(f"Error handling cell click: {e}")
+            logger.debug("Error handling cell click: %s", e, exc_info=True)
 
     def _update_row_details(self, row_data, row_idx):
         """Update the row details panel with the selected row's data."""
@@ -607,7 +610,7 @@ class DataExplorer:
                     f"Copied to clipboard: {detail_text[:50]}{'...' if len(detail_text) > 50 else ''}"
                 )
         except Exception as e:
-            print(f"Error copying detail to clipboard: {e}")
+            logger.debug("Error copying detail to clipboard: %s", e, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -730,7 +733,7 @@ class TabbedExplorerInterface:
             explorer.load_table(table_name, cb)
 
         except Exception as e:
-            print(f"[TabbedExplorerInterface] Error opening tab: {e}")
+            logger.debug("Error opening explorer tab: %s", e, exc_info=True)
             if cb:
                 cb(f"Error opening explorer for '{table_name}': {e}", True)
             # Clean up partial state
@@ -773,7 +776,7 @@ class TabbedExplorerInterface:
             configure_item("explorer_section", show=False)
             configure_item("query_section", show=True)
         except Exception as e:
-            print(f"[TabbedExplorerInterface] Error restoring query view: {e}")
+            logger.debug("Error restoring query view: %s", e, exc_info=True)
 
     def _toggle_row_details(self, explorer: DataExplorer):
         """Toggle the row details panel for the given explorer tab."""
@@ -786,4 +789,4 @@ class TabbedExplorerInterface:
             else:
                 configure_item(explorer.main_table_tag, width=-410)
         except Exception as e:
-            print(f"[TabbedExplorerInterface] Error toggling row details: {e}")
+            logger.debug("Error toggling row details: %s", e, exc_info=True)

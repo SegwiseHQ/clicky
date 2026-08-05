@@ -1,5 +1,6 @@
 """Table browser UI component for ClickHouse Client."""
 
+import logging
 import time
 from collections.abc import Callable
 
@@ -7,8 +8,15 @@ from dearpygui.dearpygui import *
 
 from utils import UIHelpers
 
+logger = logging.getLogger(__name__)
+
 TABLE_CACHE_TTL_SECONDS = 5.0
 TABLE_SEARCH_DEBOUNCE_SECONDS = 0.2
+CONNECTION_FAILURE_NOTICE_SECONDS = 3.0
+CONNECTION_FAILURE_NOTICE = (
+    "Could not connect with these details. Check the status below, fix the "
+    "connection, and try again."
+)
 
 
 class TableBrowserUI:
@@ -45,6 +53,7 @@ class TableBrowserUI:
         self._table_cache_created_at = 0.0
         self._pending_table_search: str | None = None
         self._table_search_due_at = 0.0
+        self._connection_failure_notice_expires_at = 0.0
 
         # Explicitly tracked active connection name (set when connecting to a saved connection)
         self.active_connection_name: str = ""
@@ -58,6 +67,42 @@ class TableBrowserUI:
         self._table_cache = None
         self._table_cache_key = None
         self._table_cache_created_at = 0.0
+
+    def handle_connect_failure(self):
+        """Clear the connecting placeholder and restore saved connections."""
+        self._tables_seq += 1
+        self._pending_table_search = None
+        self._connection_failure_notice_expires_at = (
+            time.monotonic() + CONNECTION_FAILURE_NOTICE_SECONDS
+        )
+
+        if not self.db_manager.is_connected:
+            self.active_connection_name = ""
+            self.connections_expanded.discard("current")
+            self.selected_table = None
+            self.invalidate_table_cache()
+
+        self.show_saved_connections()
+
+    def clear_connection_failure_notice(self):
+        """Cancel any temporary connection failure notice."""
+        self._connection_failure_notice_expires_at = 0.0
+
+    def process_pending_connection_notice(self, now: float | None = None) -> bool:
+        """Remove the temporary failure notice after its display interval."""
+        expires_at = self._connection_failure_notice_expires_at
+        if not expires_at:
+            return False
+
+        if now is None:
+            now = time.monotonic()
+        if now < expires_at:
+            return False
+
+        self.clear_connection_failure_notice()
+        if not self.db_manager.is_connected:
+            self.show_saved_connections()
+        return True
 
     def _get_table_cache_key(self) -> tuple:
         """Identify the active database without retaining credentials."""
@@ -397,6 +442,15 @@ class TableBrowserUI:
         # Clear the left panel
         delete_item("tables_list", children_only=True)
 
+        if self._connection_failure_notice_expires_at > time.monotonic():
+            add_text(
+                CONNECTION_FAILURE_NOTICE,
+                parent="tables_list",
+                color=(255, 90, 90),
+                wrap=320,
+            )
+            add_separator(parent="tables_list")
+
         # Get list of all saved credential names
         credential_names = self.credentials_manager.get_credential_names()
 
@@ -446,6 +500,8 @@ class TableBrowserUI:
     def connect_to_saved_callback(self, sender, app_data, user_data):
         """Handle clicking on a saved connection to connect to it."""
         from components.status_manager import StatusManager
+
+        self.clear_connection_failure_notice()
 
         # Get connection name from user_data
         connection_name = user_data
@@ -590,8 +646,7 @@ class TableBrowserUI:
                     f"Table name copied to clipboard: {table_name}", error=False
                 )
             except Exception:
-                # Fallback: print to console if StatusManager isn't available
-                print(f"Table name copied to clipboard: {table_name}")
+                logger.debug("Table name copied to clipboard: %s", table_name)
 
         except Exception as e:
             try:
@@ -601,8 +656,7 @@ class TableBrowserUI:
                     f"Error copying table name: {str(e)}", error=True
                 )
             except Exception:
-                # Fallback: print to console if StatusManager isn't available
-                print(f"Error copying table name: {str(e)}")
+                logger.debug("Error copying table name: %s", e, exc_info=True)
 
     def _get_connection_display_name(self) -> str:
         """Get a display name for the current connection."""

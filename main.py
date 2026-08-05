@@ -12,12 +12,19 @@ This refactored version uses modular architecture for better maintainability:
 - app.py: Main application orchestration
 """
 
+import logging
 import sys
 
 from app import ClickHouseClientApp
 from release_smoke import run_release_connection_test
 
 RELEASE_CONNECTION_TEST_FLAG = "--release-connection-test"
+
+
+def configure_runtime_logging():
+    """Keep development diagnostics silent in frozen production builds."""
+    if getattr(sys, "frozen", False):
+        logging.disable(logging.DEBUG)
 
 
 def main():
@@ -28,6 +35,7 @@ def main():
 
 def cli(args: list[str] | None = None) -> int:
     """Dispatch command-line smoke checks or start the GUI application."""
+    configure_runtime_logging()
     args = sys.argv[1:] if args is None else args
     if args == [RELEASE_CONNECTION_TEST_FLAG]:
         return run_release_connection_test()
